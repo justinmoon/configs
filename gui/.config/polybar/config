@@ -8,7 +8,7 @@ secondary = #e60053
 alert = #bd2c40
 
 [bar/main]
-monitor = ${env:MONITOR:eDP-1}
+; monitor = ${env:MONITOR:eDP1}
 width = 100%
 height = 2.5%
 radius = 6.0
@@ -28,7 +28,7 @@ font-1 = "Noto Sans Mono:size=10;1"
 font-2 = "Noto Sans Symbols:size=10;1"
 font-3 = "Noto Sans Symbols2:size=10;1"
 
-modules-left = date ewmh xwindow
+modules-left = date i3 ewmh xwindow
 modules-center =
 modules-right = github eth1 eth2 wlan cpu battery
 
@@ -43,22 +43,22 @@ margin-top = 0
 type = internal/xwindow
 label = %title:0:30:...%
 
-[module/bspwm]
-type = internal/bspwm
+[module/i3]
+type = internal/i3
 pin-workspaces = false
 enable-click = false
 enable-scroll = false
 
-label-focused = " %name% "
+label-focused = " %index% "
 label-focused-underline = #fba922
 
-label-occupied = " %name% "
+label-occupied = " %index% "
 label-occupied-foreground = #ffaa00
 
-label-urgent = " %name% "
+label-urgent = " %index% "
 label-urgent-underline = #9b0a20
 
-label-empty = " %name% "
+label-empty = " %index% "
 label-empty-foreground = #555555
 
 [module/cpu]
