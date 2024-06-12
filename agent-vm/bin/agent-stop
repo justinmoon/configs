@@ -1,0 +1,111 @@
+# agent-stop: Stop a running agent VM
+# Usage: agent-stop <session-id>
+
+SESSIONS_DIR="${AGENT_VM_SESSIONS:-$HOME/.agent-vm/sessions}"
+SYMLINK_PATH="/tmp/agent-vm-session"
+
+if [ -z "${1:-}" ]; then
+  echo "Usage: agent-stop <session-id>"
+  echo ""
+  echo "Stop a running agent VM. The session files are preserved."
+  echo "Use 'agent-resume' to restart the VM with the same state."
+  echo ""
+  echo "Use 'agent-list' to see available sessions."
+  exit 1
+fi
+
+SESSION_ID="$1"
+
+# Find the session - support partial ID matching
+MATCHING_SESSIONS=()
+for dir in "$SESSIONS_DIR"/*/; do
+  if [ -d "$dir" ]; then
+    dirname=$(basename "$dir")
+    if [[ "$dirname" == "$SESSION_ID"* ]]; then
+      MATCHING_SESSIONS+=("$dirname")
+    fi
+  fi
+done
+
+if [ ${#MATCHING_SESSIONS[@]} -eq 0 ]; then
+  echo "Error: No session found matching '$SESSION_ID'"
+  echo "Use 'agent-list' to see available sessions."
+  exit 1
+fi
+
+if [ ${#MATCHING_SESSIONS[@]} -gt 1 ]; then
+  echo "Error: Multiple sessions match '$SESSION_ID':"
+  for s in "${MATCHING_SESSIONS[@]}"; do
+    echo "  $s"
+  done
+  echo "Please be more specific."
+  exit 1
+fi
+
+SESSION_ID="${MATCHING_SESSIONS[0]}"
+SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+META_FILE="$SESSION_DIR/meta.json"
+
+if [ ! -f "$META_FILE" ]; then
+  echo "Error: Session metadata not found: $META_FILE"
+  exit 1
+fi
+
+# Get PID if stored
+PID=$(jq -r '.pid // null' "$META_FILE")
+STATUS=$(jq -r '.status // "unknown"' "$META_FILE")
+
+if [ "$STATUS" = "stopped" ]; then
+  echo "Session $SESSION_ID is already stopped."
+  exit 0
+fi
+
+echo "Stopping session $SESSION_ID..."
+
+# Try to kill the VM process if we have a PID
+if [ "$PID" != "null" ] && [ -n "$PID" ]; then
+  if kill -0 "$PID" 2>/dev/null; then
+    echo "Sending SIGTERM to VM process (PID: $PID)..."
+    kill "$PID" 2>/dev/null || true
+
+    # Wait for clean shutdown (up to 10 seconds)
+    for _ in {1..20}; do
+      if ! kill -0 "$PID" 2>/dev/null; then
+        echo "VM stopped cleanly."
+        break
+      fi
+      sleep 0.5
+    done
+
+    # Force kill if still running
+    if kill -0 "$PID" 2>/dev/null; then
+      echo "Sending SIGKILL..."
+      kill -9 "$PID" 2>/dev/null || true
+      sleep 1
+    fi
+  else
+    echo "VM process (PID: $PID) not running."
+  fi
+else
+  echo "No PID recorded for this session."
+fi
+
+# Clean up symlink if it points to this session
+if [ -L "$SYMLINK_PATH" ]; then
+  LINKED_SESSION=$(basename "$(readlink "$SYMLINK_PATH")")
+  if [ "$LINKED_SESSION" = "$SESSION_ID" ]; then
+    rm -f "$SYMLINK_PATH"
+    echo "Cleaned up session symlink."
+  fi
+fi
+
+# Update status in metadata
+jq '.status = "stopped" | .pid = null' "$META_FILE" > "$META_FILE.tmp"
+mv "$META_FILE.tmp" "$META_FILE"
+
+echo ""
+echo "Session $SESSION_ID stopped."
+echo "Files preserved at: $SESSION_DIR"
+echo ""
+echo "To restart: agent-resume $SESSION_ID"
+echo "To delete:  rm -rf $SESSION_DIR"

@@ -1,0 +1,6 @@
+- **READ THIS FIRST**: See `hosts/hetzner/README.md` for detailed deployment flow documentation
+- Check the `justfile` for other useful commands (`just --list` to see all)
+  - To update the Hetzner machine configs, run `just switch hetzner`. This runs remotely on the Hetzner host and does not require local sudo.
+- I want a declarative system here. Don't just run one-off commands to mutate my system (e.g. install package, or create symlink) if you could do it declaratively in nix instead. All software should be installed via nix unless that's impossible.
+- When you finish making nix changes and want to install them locally on this machine, ask me to do it. It requires sudo so you can't execute.
+- This is a private repo so exposed keys aren't the worst thing, but we should strive to get them all into sops over time.

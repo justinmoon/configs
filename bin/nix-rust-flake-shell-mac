@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Enter a nix shell with Rust toolchain + macOS SDK dependencies.
+
+exec nix shell github:nix-community/fenix#{stable.toolchain,rust-analyzer} -c nix-shell -p darwin.apple_sdk.frameworks.Security pkg-config openssl

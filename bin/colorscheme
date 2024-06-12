@@ -1,0 +1,292 @@
+#!/usr/bin/env bash
+# Switch color scheme for ghostty, tmux, helix, and starship.
+set -euo pipefail
+
+SCRIPT_PATH="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCHEMES_DIR="$REPO_ROOT/themes"
+STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/colorscheme"
+STATE_FILE="$STATE_ROOT/current"
+DEFAULT_SCHEME="${DEFAULT_COLORSCHEME:-nord}"
+SELF="$SCRIPT_PATH"
+
+usage() {
+  cat <<USAGE
+Usage: colorscheme [command] [args]
+
+Commands:
+  list                     List available color schemes
+  apply [--silent] NAME    Apply the given color scheme
+  current                  Print the currently applied color scheme (fallback: $DEFAULT_SCHEME)
+  describe NAME            Show details of the given scheme
+  menu [--live]            Interactive selector (default command)
+
+Run without arguments to open the interactive selector.
+USAGE
+}
+
+err() {
+  echo "colorscheme: $*" >&2
+}
+
+require_command() {
+  local cmd="$1"
+  command -v "$cmd" >/dev/null 2>&1 || {
+    err "required command '$cmd' not found"
+    exit 1
+  }
+}
+
+list_schemes() {
+  local path
+  [[ -d "$SCHEMES_DIR" ]] || return 0
+  for path in "$SCHEMES_DIR"/*; do
+    [[ -d "$path" ]] || continue
+    basename "$path"
+  done | sort
+}
+
+scheme_exists() {
+  [[ -d "$SCHEMES_DIR/$1" ]]
+}
+
+current_scheme() {
+  if [[ -f "$STATE_FILE" ]]; then
+    tr -d '\n' <"$STATE_FILE"
+  else
+    printf '%s' "$DEFAULT_SCHEME"
+  fi
+}
+
+write_current_scheme() {
+  mkdir -p "$STATE_ROOT"
+  printf '%s\n' "$1" >"$STATE_FILE"
+}
+
+write_theme_link() {
+  local src="$1"
+  local dest="$2"
+  local dir
+  dir="$(dirname "$dest")"
+  mkdir -p "$dir"
+  if [[ -f "$src" ]]; then
+    local abs_src
+    abs_src="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$src")"
+    ln -sfn "$abs_src" "$dest"
+  else
+    rm -f "$dest"
+  fi
+}
+
+
+
+
+
+tmux_active() {
+  command -v tmux >/dev/null 2>&1 || return 1
+  tmux has-session >/dev/null 2>&1
+}
+
+reload_tmux() {
+  tmux_active || return 0
+  local tmux_conf="${TMUX_CONF:-$HOME/.config/tmux/tmux.conf}"
+  [[ -f "$tmux_conf" ]] || return 0
+  tmux source-file "$tmux_conf" >/dev/null 2>&1 || true
+}
+
+reload_helix_in_tmux() {
+  tmux_active || return 0
+  local panes
+  panes=$(tmux list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null) || return 0
+  while IFS=' ' read -r pane_id pane_cmd; do
+    [[ -n "$pane_id" ]] || continue
+    if [[ "$pane_cmd" == "hx" ]]; then
+      tmux send-keys -t "$pane_id" ':colorscheme-reload' Enter >/dev/null 2>&1 || true
+    fi
+  done <<<"$panes"
+}
+
+reload_ghostty() {
+  [[ "${COLORSCHEME_RELOAD_GHOSTTY:-1}" == "1" ]] || return 0
+  command -v ghostty >/dev/null 2>&1 || return 0
+  command -v osascript >/dev/null 2>&1 || return 0
+  if command -v pgrep >/dev/null 2>&1; then
+    pgrep -x ghostty >/dev/null 2>&1 || return 0
+  fi
+  osascript <<'APPLESCRIPT' >/dev/null 2>&1 || true
+  tell application "System Events"
+    if not (exists process "Ghostty") then return
+    set frontAppName to name of first process whose frontmost is true
+    tell process "Ghostty"
+      set frontmost to true
+      click menu item "Reload Configuration" of menu "Ghostty" of menu bar 1
+    end tell
+  end tell
+  if frontAppName is not "Ghostty" then
+    tell application frontAppName to activate
+  end if
+APPLESCRIPT
+}
+
+propagate_reload() {
+  reload_tmux
+  reload_helix_in_tmux
+  reload_ghostty
+}
+
+apply_scheme() {
+  local silent=0
+  if [[ "${1:-}" == "--silent" ]]; then
+    silent=1
+    shift
+  fi
+  local scheme="${1:-}"
+  if [[ -z "$scheme" ]]; then
+    if [[ $silent -eq 0 ]]; then
+      err "no scheme name provided"
+    fi
+    return 1
+  fi
+  local scheme_dir="$SCHEMES_DIR/$scheme"
+  if [[ ! -d "$scheme_dir" ]]; then
+    if [[ $silent -eq 0 ]]; then
+      err "unknown scheme '$scheme'"
+    fi
+    return 1
+  fi
+
+  mkdir -p "$STATE_ROOT"
+
+  write_theme_link "$scheme_dir/ghostty.conf" "$STATE_ROOT/ghostty.conf"
+  write_theme_link "$scheme_dir/tmux.conf" "$STATE_ROOT/tmux.conf"
+  write_theme_link "$scheme_dir/helix.toml" "$STATE_ROOT/helix.toml"
+  write_theme_link "$scheme_dir/starship.toml" "$STATE_ROOT/starship.toml"
+  write_theme_link "$scheme_dir/fzf.txt" "$STATE_ROOT/fzf.txt"
+  write_theme_link "$scheme_dir/gum.env" "$STATE_ROOT/gum.env"
+
+  write_current_scheme "$scheme"
+  propagate_reload
+
+  if [[ $silent -eq 0 ]]; then
+    echo "Applied color scheme: $scheme"
+  fi
+}
+
+describe_scheme() {
+  local scheme="$1"
+  [[ -n "$scheme" ]] || return 0
+  local scheme_dir="$SCHEMES_DIR/$scheme"
+  if [[ ! -d "$scheme_dir" ]]; then
+    printf 'Unknown scheme: %s\n' "$scheme"
+    return 0
+  fi
+  local ghostty="$scheme_dir/ghostty.conf"
+  local tmux="$scheme_dir/tmux.conf"
+  local helix="$scheme_dir/helix.toml"
+  local starship="$scheme_dir/starship.toml"
+  local fzf="$scheme_dir/fzf.txt"
+  local gum="$scheme_dir/gum.env"
+  printf 'Scheme: %s\n' "$scheme"
+  if [[ -f "$ghostty" ]]; then
+    printf '\n[ghostty]\n'
+    sed 's/^/  /' "$ghostty"
+  fi
+  if [[ -f "$tmux" ]]; then
+    printf '\n[tmux]\n'
+    sed 's/^/  /' "$tmux"
+  fi
+  if [[ -f "$helix" ]]; then
+    printf '\n[helix]\n'
+    sed 's/^/  /' "$helix"
+  fi
+  if [[ -f "$starship" ]]; then
+    printf '\n[starship]\n'
+    sed 's/^/  /' "$starship"
+  fi
+  if [[ -f "$fzf" ]]; then
+    printf '\n[fzf]\n'
+    sed 's/^/  /' "$fzf"
+  fi
+  if [[ -f "$gum" ]]; then
+    printf '\n[gum]\n'
+    sed 's/^/  /' "$gum"
+  fi
+}
+
+interactive_menu() {
+  require_command fzf
+  local live=0
+  if [[ "${1:-}" == "--live" ]]; then
+    live=1
+    shift || true
+  fi
+  local initial
+  initial=$(current_scheme || true)
+  local fzf_cmd
+  if command -v fzf-tmux >/dev/null 2>&1; then
+    fzf_cmd=(fzf-tmux -p 55%,60%)
+  else
+    fzf_cmd=(fzf)
+  fi
+
+  local selection
+  local status
+  local binds=()
+  local live_cmd=""$SELF" apply --silent {}"
+  if [[ $live -eq 1 ]]; then
+    binds+=(--bind "focus:execute-silent($live_cmd)" --bind "start:execute-silent($live_cmd)")
+  fi
+  selection=$({
+    if [[ -n "${initial:-}" ]]; then
+      if scheme_exists "$initial"; then
+        printf '%s\n' "$initial"
+        list_schemes | awk -v cur="$initial" '$0 != cur'
+      else
+        list_schemes
+      fi
+    else
+      list_schemes
+    fi
+  } | "${fzf_cmd[@]}" --prompt 'colorscheme> ' --header 'Enter to apply | Esc to cancel' "${binds[@]}" || true)
+  status=$?
+  if [[ $status -eq 0 && -n "$selection" ]]; then
+    apply_scheme "$selection"
+  else
+    if [[ $live -eq 1 && -n "${initial:-}" ]]; then
+      if scheme_exists "$initial"; then
+        apply_scheme --silent "$initial"
+      fi
+    fi
+    return $status
+  fi
+}
+
+command="${1:-menu}"
+case "$command" in
+  -h|--help|help)
+    usage
+    ;;
+  list)
+    list_schemes
+    ;;
+  apply)
+    shift || true
+    apply_scheme "$@"
+    ;;
+  current)
+    current_scheme
+    ;;
+  describe)
+    shift || true
+    [[ $# -ge 1 ]] || exit 0
+    describe_scheme "$1"
+    ;;
+  menu)
+    shift || true
+    interactive_menu "$@"
+    ;;
+  *)
+    interactive_menu "$@"
+    ;;
+esac

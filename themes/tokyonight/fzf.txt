@@ -1,0 +1,2 @@
+# scheme = tokyonight
+--color=bg+:#292e42,bg:#1a1b26,spinner:#7aa2f7,hl:#bb9af7 --color=fg:#c0caf5,header:#bb9af7,info:#73daca,pointer:#7dcfff --color=marker:#73daca,fg+:#c0caf5,prompt:#7dcfff,hl+:#bb9af7 --color=border:#414868

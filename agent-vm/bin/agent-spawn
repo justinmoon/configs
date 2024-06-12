@@ -1,0 +1,193 @@
+# agent-spawn: Create and launch a new agent VM session
+# Usage: agent-spawn --repo <url> --prompt "task description"
+#        agent-spawn --repo <url>  (interactive mode)
+
+SESSIONS_DIR="${AGENT_VM_SESSIONS:-$HOME/.agent-vm/sessions}"
+SYMLINK_PATH="/tmp/agent-vm-session"
+
+# VM runner path - substituted at build time by flake.nix
+VM_RUNNER="VM_RUNNER_PLACEHOLDER"
+
+# Parse arguments
+REPO=""
+PROMPT=""
+REF="main"
+PORT=""
+
+usage() {
+  echo "Usage: agent-spawn --repo <url> [--prompt <prompt>] [--ref <branch>] [--port <port>]"
+  echo ""
+  echo "Options:"
+  echo "  --repo <url>     Git repository URL to clone (required)"
+  echo "  --prompt <text>  Initial prompt for opencode (optional)"
+  echo "  --ref <branch>   Git ref to checkout (default: main)"
+  echo "  --port <port>    SSH port to use (default: auto-assigned)"
+  echo ""
+  echo "Environment:"
+  echo "  ANTHROPIC_API_KEY    API key for opencode (required)"
+  echo "  AGENT_VM_SESSIONS    Sessions directory (default: ~/.agent-vm/sessions)"
+  exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --repo)
+      REPO="$2"
+      shift 2
+      ;;
+    --prompt)
+      PROMPT="$2"
+      shift 2
+      ;;
+    --ref)
+      REF="$2"
+      shift 2
+      ;;
+    --port)
+      PORT="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+if [ -z "$REPO" ]; then
+  echo "Error: --repo is required"
+  usage
+fi
+
+# Check for API key
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+  echo "Error: ANTHROPIC_API_KEY environment variable is required"
+  exit 1
+fi
+
+# Check if another VM is running (symlink limitation)
+if [ -L "$SYMLINK_PATH" ]; then
+  CURRENT_SESSION=$(basename "$(readlink "$SYMLINK_PATH")")
+  # Check if there's actually a VM running for this session
+  if [ -f "$SESSIONS_DIR/$CURRENT_SESSION/meta.json" ]; then
+    CURRENT_STATUS=$(jq -r '.status // "unknown"' "$SESSIONS_DIR/$CURRENT_SESSION/meta.json")
+    if [ "$CURRENT_STATUS" = "running" ]; then
+      echo "Error: Another session ($CURRENT_SESSION) is currently running."
+      echo "Only one VM can run at a time (symlink limitation)."
+      echo "Stop it with: agent-stop $CURRENT_SESSION"
+      exit 1
+    fi
+  fi
+fi
+
+# Generate session ID
+ID=$(openssl rand -hex 4)
+SESSION_DIR="$SESSIONS_DIR/$ID"
+
+echo "Creating session: $ID"
+
+# Create session directory structure
+# Make writable by all (VM agent user has different UID than host user)
+mkdir -p "$SESSION_DIR"/{repo,opencode,cache}
+chmod 777 "$SESSION_DIR" "$SESSION_DIR/opencode" "$SESSION_DIR/cache"
+
+# Clone the repository
+echo "Cloning $REPO..."
+git clone --depth 1 --branch "$REF" "$REPO" "$SESSION_DIR/repo" 2>/dev/null || \
+  git clone --depth 1 "$REPO" "$SESSION_DIR/repo"
+
+# Write prompt if provided
+if [ -n "$PROMPT" ]; then
+  echo "$PROMPT" > "$SESSION_DIR/prompt.txt"
+fi
+
+# Write environment file for the VM
+cat > "$SESSION_DIR/env" << EOF
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+EOF
+# Make readable by all (the VM is the security boundary, not file permissions)
+chmod 644 "$SESSION_DIR/env"
+
+# Find an available port if not specified
+if [ -z "$PORT" ]; then
+  # Start from 2222 and find first available
+  PORT=2222
+  while nc -z localhost "$PORT" 2>/dev/null; do
+    PORT=$((PORT + 1))
+    if [ "$PORT" -gt 2300 ]; then
+      echo "Error: Could not find available port in range 2222-2300"
+      exit 1
+    fi
+  done
+fi
+
+echo "Session directory: $SESSION_DIR"
+echo "SSH port: $PORT"
+
+# Write session metadata
+cat > "$SESSION_DIR/meta.json" << EOF
+{
+  "id": "$ID",
+  "repo": "$REPO",
+  "ref": "$REF",
+  "prompt": $(echo "$PROMPT" | jq -R .),
+  "created": "$(date -Iseconds)",
+  "status": "starting",
+  "port": $PORT,
+  "pid": null
+}
+EOF
+
+# Create symlink to session directory
+# This is how the VM finds the session at runtime
+ln -sfn "$SESSION_DIR" "$SYMLINK_PATH"
+
+echo ""
+echo "Starting VM..."
+
+# Launch VM in background with dynamic port
+# The extraArgsScript in vm.nix reads AGENT_SSH_PORT
+AGENT_SSH_PORT=$PORT "$VM_RUNNER/bin/microvm-run" &
+VM_PID=$!
+
+# Save PID to metadata
+jq ".pid = $VM_PID | .status = \"running\"" "$SESSION_DIR/meta.json" > "$SESSION_DIR/meta.json.tmp"
+mv "$SESSION_DIR/meta.json.tmp" "$SESSION_DIR/meta.json"
+
+# Wait for SSH to be ready
+echo "Waiting for VM to boot..."
+for _ in {1..60}; do
+  if nc -z localhost "$PORT" 2>/dev/null; then
+    echo ""
+    echo "VM ready!"
+    break
+  fi
+  # Check if VM process is still running
+  if ! kill -0 "$VM_PID" 2>/dev/null; then
+    echo ""
+    echo "Error: VM process exited unexpectedly"
+    jq '.status = "crashed"' "$SESSION_DIR/meta.json" > "$SESSION_DIR/meta.json.tmp"
+    mv "$SESSION_DIR/meta.json.tmp" "$SESSION_DIR/meta.json"
+    exit 1
+  fi
+  printf "."
+  sleep 1
+done
+
+# Final check
+if ! nc -z localhost "$PORT" 2>/dev/null; then
+  echo ""
+  echo "Warning: VM may not be fully ready (SSH not responding after 60s)"
+  echo "Check VM status with: agent-attach $ID"
+fi
+
+echo ""
+echo "Session: $ID"
+echo "SSH:     ssh -p $PORT agent@localhost (password: agent)"
+echo "Attach:  agent-attach $ID"
+echo "Stop:    agent-stop $ID"
+echo ""
+echo "$ID"

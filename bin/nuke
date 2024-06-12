@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+
+# nuke - Clean up a failed vibe worktree attempt
+# Removes the branch, worktree, and kills the current tmux pane
+# Usage: nuke
+
+set -euo pipefail
+
+# Color codes for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
+
+# Function to log errors loudly
+error() {
+    echo -e "${RED}${BOLD}" >&2
+    echo "=========================================" >&2
+    echo "ERROR ERROR ERROR ERROR ERROR ERROR ERROR" >&2
+    echo "=========================================" >&2
+    echo -e "${NC}${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $*${NC}" >&2
+    echo -e "${RED}${BOLD}=========================================" >&2
+    echo -e "${NC}" >&2
+}
+
+# Function to log warnings
+warn() {
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: $*${NC}"
+}
+
+# Function to log success
+success() {
+    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] SUCCESS: $*${NC}"
+}
+
+# Trap errors and log them loudly
+trap 'error "Script failed at line $LINENO with exit code $?. Command: $BASH_COMMAND"' ERR
+
+# Variables to track what we're doing
+SCRIPT_WINDOW=""
+
+log "========================================="
+log "Starting nuke cleanup"
+log "========================================="
+log "Environment:"
+log "  PWD: $PWD"
+log "  TMUX: ${TMUX:-not set}"
+log "  TMUX_PANE: ${TMUX_PANE:-not set}"
+
+# Capture the window of the pane running this script at the very start
+if [ -n "${TMUX:-}" ] && [ -n "${TMUX_PANE:-}" ]; then
+    log "Detected tmux session"
+    log "Getting window ID for pane $TMUX_PANE..."
+    
+    # Get the window ID for the pane running this script
+    if command -v tmux >/dev/null 2>&1; then
+        set +e
+        SCRIPT_WINDOW=$(tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>&1)
+        TMUX_EXIT_CODE=$?
+        set -e
+        
+        if [ $TMUX_EXIT_CODE -eq 0 ] && [ -n "$SCRIPT_WINDOW" ]; then
+            success "Found tmux window: $SCRIPT_WINDOW for pane $TMUX_PANE"
+        else
+            warn "Could not get tmux window ID for pane $TMUX_PANE"
+            warn "Tmux cleanup will be skipped"
+            SCRIPT_WINDOW=""
+        fi
+    else
+        warn "tmux command not found"
+        warn "Tmux cleanup will be skipped"
+    fi
+else
+    log "Not running in tmux"
+fi
+
+# Get current branch name
+log "Getting current git branch..."
+if CURRENT_BRANCH=$(git branch --show-current 2>&1); then
+    success "Current branch: $CURRENT_BRANCH"
+else
+    error "Failed to get current branch: $CURRENT_BRANCH"
+    exit 1
+fi
+
+if [ -z "$CURRENT_BRANCH" ]; then
+    error "Current branch is empty - are we in detached HEAD state?"
+    git status
+    exit 1
+fi
+
+# Confirm with user
+echo -e "${YELLOW}${BOLD}"
+echo "========================================="
+echo "WARNING: About to abandon worktree"
+echo "========================================="
+echo -e "${NC}${YELLOW}"
+echo "This will:"
+echo "  1. Remove the current worktree"
+echo "  2. Delete branch: $CURRENT_BRANCH"
+echo "  3. Kill the current tmux window"
+echo -e "${NC}"
+echo -n "Are you sure you want to abandon this worktree? (y/N): "
+read -r CONFIRM
+
+if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    log "User cancelled abandonment"
+    exit 0
+fi
+
+# Check if we're in a worktree
+log "Checking if we're in a worktree..."
+if WORKTREE_PATH=$(git rev-parse --show-toplevel 2>&1); then
+    log "Git repository toplevel: $WORKTREE_PATH"
+else
+    error "Failed to get git toplevel: $WORKTREE_PATH"
+    exit 1
+fi
+
+if GIT_DIR=$(git rev-parse --git-dir 2>&1); then
+    log "Git directory: $GIT_DIR"
+else
+    error "Failed to get git directory: $GIT_DIR"
+    exit 1
+fi
+
+# Check if this is a worktree
+if [ -f "$WORKTREE_PATH/.git" ] || [[ "$GIT_DIR" == *".git/worktrees"* ]]; then
+    IS_WORKTREE="true"
+    success "Detected worktree at: $WORKTREE_PATH"
+    
+    # Move to parent directory first to avoid being in the directory we're deleting
+    log "Moving to parent directory..."
+    PARENT_DIR=$(dirname "$WORKTREE_PATH")
+    
+    if cd "$PARENT_DIR"; then
+        success "Changed directory to: $PWD"
+    else
+        error "Failed to change to parent directory: $PARENT_DIR"
+        exit 1
+    fi
+    
+    # Remove worktree and branch
+    log "Removing worktree and branch..."
+    log "Running: git worktree remove '$WORKTREE_PATH' --force"
+    
+    if OUTPUT=$(git worktree remove "$WORKTREE_PATH" --force 2>&1); then
+        success "Worktree and branch removed successfully"
+        [ -n "$OUTPUT" ] && log "Output: $OUTPUT"
+    else
+        EXIT_CODE=$?
+        if [[ "$OUTPUT" == *"already"* ]] || [[ "$OUTPUT" == *"not a working tree"* ]]; then
+            warn "Worktree might already be removed: $OUTPUT"
+        else
+            error "Failed to remove worktree (exit code $EXIT_CODE): $OUTPUT"
+            exit 1
+        fi
+    fi
+else
+    # Not in a worktree - this tool is for worktree cleanup only
+    error "Not in a worktree! This tool is for cleaning up vibe worktrees."
+    error "Current directory: $PWD"
+    error "If you want to delete a regular branch, use git commands directly."
+    exit 1
+fi
+
+# Close tmux window if we're in tmux
+if [ -n "${SCRIPT_WINDOW:-}" ]; then
+    log "Scheduling tmux window close: $SCRIPT_WINDOW"
+    
+    # Schedule the window kill to happen after this script exits
+    # Otherwise, killing our own window will terminate this script immediately
+    (
+        sleep 0.5
+        tmux kill-window -t "$SCRIPT_WINDOW" 2>/dev/null || true
+    ) &
+    
+    success "Tmux window $SCRIPT_WINDOW scheduled for closure"
+    log "Window will close in 0.5 seconds..."
+else
+    log "No tmux window to close"
+fi
+
+log "========================================="
+success "✨ Worktree abandoned successfully!"
+log "=========================================
+"

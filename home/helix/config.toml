@@ -1,0 +1,8 @@
+# Default theme: nord
+theme = "nord"
+
+[editor]
+# enable-steel = true  # DISABLED - using standard nixpkgs helix without steel
+
+[editor.file-picker]
+hidden = false

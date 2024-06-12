@@ -1,0 +1,10 @@
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="400" fill="#f5f5f5"/>
+  <rect x="50" y="50" width="700" height="300" fill="#ddd" stroke="#000" stroke-width="2"/>
+  <text x="400" y="210" font-family="monospace" font-size="24" text-anchor="middle" fill="#666">
+    [Server Infrastructure Diagram]
+  </text>
+  <text x="400" y="240" font-family="monospace" font-size="16" text-anchor="middle" fill="#999">
+    Placeholder image - 800x400
+  </text>
+</svg>

@@ -1,0 +1,4 @@
+#!/bin/bash
+# Remove worktree and branch from within active worktree directory.
+echo "gd is a fish function - run it directly in fish, not as a script." >&2
+exit 1

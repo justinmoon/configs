@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="${1:-qa}"
+
+if [[ -n "${TMUX:-}" ]]; then
+  echo "ERROR: run outside tmux" >&2
+  exit 1
+fi
+
+tmux -L "$name" new -s "$name"

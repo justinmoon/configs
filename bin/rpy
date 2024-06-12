@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Copy the realpath of a file to clipboard.
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "Usage: rpy <path>" >&2
+  exit 1
+fi
+
+resolved=$(realpath "$1")
+
+copy_with() {
+  case "$1" in
+    y)
+      echo -n "$resolved" | y
+      ;;
+    pbcopy|xclip|wl-copy)
+      echo -n "$resolved" | "$1"
+      ;;
+    clip.exe)
+      printf '%s' "$resolved" | clip.exe
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+for cmd in y pbcopy xclip wl-copy clip.exe; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    copy_with "$cmd"
+    exit 0
+  fi
+done
+
+echo "Error: no clipboard command found (looked for y, pbcopy, xclip, wl-copy, clip.exe)" >&2
+exit 1

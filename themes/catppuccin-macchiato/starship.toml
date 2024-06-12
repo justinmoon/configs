@@ -1,0 +1,42 @@
+# scheme = catppuccin-macchiato
+palette = "macchiato"
+
+[palettes.macchiato]
+fg = "#cad3f5"
+muted = "#494d64"
+primary = "#8aadf4"
+secondary = "#b7bdf8"
+accent = "#eed49f"
+success = "#a6da95"
+warning = "#f5a97f"
+error = "#ed8796"
+symbol = "#8bd5ca"
+
+[container]
+disabled = true
+
+[directory]
+style = "fg:primary"
+
+[git_branch]
+style = "fg:secondary"
+
+[git_status]
+style = "fg:accent"
+
+[python]
+style = "fg:success"
+
+[nodejs]
+style = "fg:success"
+
+[rust]
+style = "fg:success"
+
+[cmd_duration]
+style = "fg:warning"
+
+[character]
+success_symbol = "[❯](fg:symbol)"
+error_symbol = "[❯](fg:error)"
+vicmd_symbol = "[❮](fg:primary)"

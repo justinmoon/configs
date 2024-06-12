@@ -1,0 +1,179 @@
+# agent-resume: Resume a stopped agent VM session
+# Usage: agent-resume <session-id>
+
+SESSIONS_DIR="${AGENT_VM_SESSIONS:-$HOME/.agent-vm/sessions}"
+SYMLINK_PATH="/tmp/agent-vm-session"
+
+# VM runner path - substituted at build time by flake.nix
+VM_RUNNER="VM_RUNNER_PLACEHOLDER"
+
+if [ -z "${1:-}" ]; then
+  echo "Usage: agent-resume <session-id>"
+  echo ""
+  echo "Resume a stopped agent VM session."
+  echo "Boots a new VM with the existing session state."
+  echo ""
+  echo "Use 'agent-list' to see available sessions."
+  exit 1
+fi
+
+SESSION_ID="$1"
+
+# Find the session - support partial ID matching
+MATCHING_SESSIONS=()
+for dir in "$SESSIONS_DIR"/*/; do
+  if [ -d "$dir" ]; then
+    dirname=$(basename "$dir")
+    if [[ "$dirname" == "$SESSION_ID"* ]]; then
+      MATCHING_SESSIONS+=("$dirname")
+    fi
+  fi
+done
+
+if [ ${#MATCHING_SESSIONS[@]} -eq 0 ]; then
+  echo "Error: No session found matching '$SESSION_ID'"
+  echo "Use 'agent-list' to see available sessions."
+  exit 1
+fi
+
+if [ ${#MATCHING_SESSIONS[@]} -gt 1 ]; then
+  echo "Error: Multiple sessions match '$SESSION_ID':"
+  for s in "${MATCHING_SESSIONS[@]}"; do
+    echo "  $s"
+  done
+  echo "Please be more specific."
+  exit 1
+fi
+
+SESSION_ID="${MATCHING_SESSIONS[0]}"
+SESSION_DIR="$SESSIONS_DIR/$SESSION_ID"
+META_FILE="$SESSION_DIR/meta.json"
+
+if [ ! -f "$META_FILE" ]; then
+  echo "Error: Session metadata not found: $META_FILE"
+  exit 1
+fi
+
+# Check for API key
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+  # Try to read from session env file
+  if [ -f "$SESSION_DIR/env" ]; then
+    # shellcheck source=/dev/null
+    source "$SESSION_DIR/env"
+  fi
+
+  if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "Error: ANTHROPIC_API_KEY environment variable is required"
+    exit 1
+  fi
+fi
+
+# Update env file with current API key
+cat > "$SESSION_DIR/env" << EOF
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+EOF
+chmod 600 "$SESSION_DIR/env"
+
+# Read session metadata
+PORT=$(jq -r '.port // 2222' "$META_FILE")
+STATUS=$(jq -r '.status // "unknown"' "$META_FILE")
+REPO=$(jq -r '.repo // "unknown"' "$META_FILE")
+
+if [ "$STATUS" = "running" ]; then
+  # Check if the VM is actually running
+  PID=$(jq -r '.pid // null' "$META_FILE")
+  if [ "$PID" != "null" ] && kill -0 "$PID" 2>/dev/null; then
+    echo "Session $SESSION_ID is already running (PID: $PID)."
+    echo "Use 'agent-attach $SESSION_ID' to connect."
+    exit 0
+  else
+    echo "Session marked as running but VM not found. Restarting..."
+  fi
+fi
+
+# Check if another VM is running (symlink limitation)
+if [ -L "$SYMLINK_PATH" ]; then
+  CURRENT_SESSION=$(basename "$(readlink "$SYMLINK_PATH")")
+  if [ "$CURRENT_SESSION" != "$SESSION_ID" ]; then
+    if [ -f "$SESSIONS_DIR/$CURRENT_SESSION/meta.json" ]; then
+      CURRENT_STATUS=$(jq -r '.status // "unknown"' "$SESSIONS_DIR/$CURRENT_SESSION/meta.json")
+      CURRENT_PID=$(jq -r '.pid // null' "$SESSIONS_DIR/$CURRENT_SESSION/meta.json")
+      if [ "$CURRENT_STATUS" = "running" ] && [ "$CURRENT_PID" != "null" ] && kill -0 "$CURRENT_PID" 2>/dev/null; then
+        echo "Error: Another session ($CURRENT_SESSION) is currently running."
+        echo "Only one VM can run at a time (symlink limitation)."
+        echo "Stop it with: agent-stop $CURRENT_SESSION"
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+# Check if port is available
+if nc -z localhost "$PORT" 2>/dev/null; then
+  echo "Warning: Port $PORT is in use. Finding new port..."
+  PORT=2222
+  while nc -z localhost "$PORT" 2>/dev/null; do
+    PORT=$((PORT + 1))
+    if [ "$PORT" -gt 2300 ]; then
+      echo "Error: Could not find available port"
+      exit 1
+    fi
+  done
+  # Update metadata with new port
+  jq ".port = $PORT" "$META_FILE" > "$META_FILE.tmp"
+  mv "$META_FILE.tmp" "$META_FILE"
+fi
+
+echo "Resuming session: $SESSION_ID"
+echo "Repository: $REPO"
+echo "SSH port: $PORT"
+echo ""
+
+# Create symlink to session directory
+ln -sfn "$SESSION_DIR" "$SYMLINK_PATH"
+
+# Update status
+jq '.status = "starting"' "$META_FILE" > "$META_FILE.tmp"
+mv "$META_FILE.tmp" "$META_FILE"
+
+echo "Starting VM..."
+
+# Launch VM in background with dynamic port
+AGENT_SSH_PORT=$PORT "$VM_RUNNER/bin/microvm-run" &
+VM_PID=$!
+
+# Save PID to metadata
+jq ".pid = $VM_PID | .status = \"running\"" "$META_FILE" > "$META_FILE.tmp"
+mv "$META_FILE.tmp" "$META_FILE"
+
+# Wait for SSH to be ready
+echo "Waiting for VM to boot..."
+for _ in {1..60}; do
+  if nc -z localhost "$PORT" 2>/dev/null; then
+    echo ""
+    echo "VM ready!"
+    break
+  fi
+  # Check if VM process is still running
+  if ! kill -0 "$VM_PID" 2>/dev/null; then
+    echo ""
+    echo "Error: VM process exited unexpectedly"
+    jq '.status = "crashed"' "$META_FILE" > "$META_FILE.tmp"
+    mv "$META_FILE.tmp" "$META_FILE"
+    exit 1
+  fi
+  printf "."
+  sleep 1
+done
+
+# Final check
+if ! nc -z localhost "$PORT" 2>/dev/null; then
+  echo ""
+  echo "Warning: VM may not be fully ready (SSH not responding after 60s)"
+fi
+
+echo ""
+echo "Session resumed: $SESSION_ID"
+echo "SSH:     ssh -p $PORT agent@localhost (password: agent)"
+echo "Attach:  agent-attach $SESSION_ID"
+echo "Stop:    agent-stop $SESSION_ID"

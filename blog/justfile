@@ -1,0 +1,29 @@
+# Install dependencies if needed
+install:
+    bun install
+
+# Run dev server and open in browser
+dev: install
+    @echo "Starting dev server..."
+    @(sleep 2 && open http://localhost:4321) &
+    bunx --bun astro dev
+
+# Build for production
+build: install
+    bunx --bun astro check && bunx --bun astro build
+
+# Preview production build
+preview: build
+    bunx --bun astro preview
+
+# Clean build artifacts
+clean:
+    rm -rf dist .astro node_modules
+
+# Deploy to justinmoon.com (via Nix)
+deploy:
+    @echo "Deploying blog via Nix flake..."
+    @echo "1. Commit and push your changes"
+    @echo "2. Run: cd ~/configs && just switch hetzner"
+    @echo ""
+    @echo "The blog will be built and deployed as part of the NixOS configuration."

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# Run cloc with by-file ranking
+if [ $# -eq 0 ]; then
+    echo "Usage: cloc-ranked <directory-or-file>"
+    echo "Example: cloc-ranked src"
+    exit 1
+fi
+
+cloc "$@" --by-file --quiet

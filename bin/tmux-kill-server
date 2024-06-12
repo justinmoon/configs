@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+  echo "usage: tmux-kill-server <name>" >&2
+  exit 1
+fi
+
+if [[ -n "${TMUX:-}" ]]; then
+  echo "ERROR: run outside tmux" >&2
+  exit 1
+fi
+
+tmux -L "$1" kill-server

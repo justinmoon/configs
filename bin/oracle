@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Oracle - AI advisor powered by high-reasoning models via opencode
+# Provides expert guidance, planning, and review capabilities with access to codebase
+
+set -euo pipefail
+
+# Default model
+MODEL="${ORACLE_MODEL:-openai/GPT 5 Codex High}"
+
+if [ $# -eq 0 ]; then
+    echo "Usage: oracle <question>" >&2
+    echo "" >&2
+    echo "Example: oracle 'What is the best approach to implement authentication?'" >&2
+    echo "" >&2
+    echo "Environment variables:" >&2
+    echo "  ORACLE_MODEL: Model to use (default: openai/GPT 5 Codex High)" >&2
+    echo "" >&2
+    echo "This uses opencode with ChatGPT Pro billing and full coding agent capabilities." >&2
+    exit 1
+fi
+
+# Join all arguments into the question
+QUESTION="$*"
+
+# Call opencode with the model and question
+# Using run mode for non-interactive execution
+exec opencode run --model "$MODEL" "$QUESTION"

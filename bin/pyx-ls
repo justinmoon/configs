@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# PYX Language Server - runs the local development version via uvx
+exec uvx --from /Users/justin/code/pyx/pyx-ls pyx-ls "$@"

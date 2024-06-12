@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Run the local gpt5-pro TypeScript project (builds if needed).
+set -euo pipefail
+
+ROOT="$HOME/code/gpt5-pro"
+
+if [[ ! -d "$ROOT" ]]; then
+  echo "gpt5-pro: expected repo at $ROOT" >&2
+  exit 1
+fi
+
+NEEDS_BUILD=false
+if [[ ! -f "$ROOT/dist/index.js" ]]; then
+  NEEDS_BUILD=true
+else
+  if find "$ROOT/src" -type f -newer "$ROOT/dist/index.js" | read; then
+    NEEDS_BUILD=true
+  fi
+fi
+
+if [[ "$NEEDS_BUILD" == "true" ]]; then
+  echo "gpt5-pro: building TypeScript sources..." >&2
+  (cd "$ROOT" && npm run build >/dev/null)
+fi
+
+exec node "$ROOT/dist/index.js" "$@"

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Move tmux window right with wrapping
+
+current=$(tmux display-message -p '#{window_index}')
+last=$(tmux list-windows -F '#{window_index}' | tail -1)
+
+if [ "$current" -eq "$last" ]; then
+    # At last position, move to beginning
+    first=$(tmux list-windows -F '#{window_index}' | head -1)
+    tmux move-window -s ":$current" -t ":$((first - 1))"
+    tmux move-window -r
+else
+    # Swap with next and follow
+    tmux swap-window -d -t:+1
+fi

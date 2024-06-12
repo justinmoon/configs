@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Find and optionally delete git worktrees older than N days.
+
+set -euo pipefail
+
+DAYS_THRESHOLD=7
+DELETE_MODE=false
+CODE_DIR="$HOME/code"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Find git worktrees in ~/code that haven't been touched in a week.
+
+OPTIONS:
+    -d, --delete    Delete the stale worktrees (keeps branches)
+    -t, --days N    Set threshold to N days (default: 7)
+    -h, --help      Show this help message
+
+EXAMPLES:
+    $(basename "$0")              # List stale worktrees
+    $(basename "$0") -d           # Delete stale worktrees
+    $(basename "$0") -t 14        # Find worktrees older than 14 days
+EOF
+    exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -d|--delete)
+            DELETE_MODE=true
+            shift
+            ;;
+        -t|--days)
+            DAYS_THRESHOLD="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+if [[ ! -d "$CODE_DIR" ]]; then
+    echo "Error: $CODE_DIR does not exist"
+    exit 1
+fi
+
+# Find all git repositories recursively
+find "$CODE_DIR" -type d -name ".git" 2>/dev/null | while read -r git_dir; do
+    repo_dir="$(dirname "$git_dir")"
+
+    # Get all worktrees for this repo
+    git -C "$repo_dir" worktree list --porcelain 2>/dev/null | {
+        worktree_path=""
+        is_main=false
+
+        while IFS= read -r line; do
+            if [[ "$line" == "worktree "* ]]; then
+                worktree_path="${line#worktree }"
+                is_main=false
+            elif [[ "$line" == "HEAD "* ]]; then
+                # This marks the main worktree
+                if [[ "$worktree_path" == "$repo_dir" ]]; then
+                    is_main=true
+                fi
+            elif [[ -z "$line" ]]; then
+                # Empty line marks end of worktree entry
+                if [[ -n "$worktree_path" ]] && [[ "$is_main" == "false" ]]; then
+                    # Check if worktree directory exists
+                    if [[ -d "$worktree_path" ]]; then
+                        # Find the most recently modified file in the worktree
+                        last_modified=$(find "$worktree_path" -type f -not -path '*/\.git/*' -print0 2>/dev/null | xargs -0 stat -f "%m %N" 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f1)
+
+                        if [[ -n "$last_modified" ]]; then
+                            current_time=$(date +%s)
+                            age_days=$(( (current_time - last_modified) / 86400 ))
+
+                            if [[ $age_days -ge $DAYS_THRESHOLD ]]; then
+                                last_modified_date=$(date -r "$last_modified" "+%Y-%m-%d %H:%M:%S")
+
+                                if [[ "$DELETE_MODE" == "true" ]]; then
+                                    echo "Deleting: $worktree_path (last modified: $last_modified_date, $age_days days ago)"
+                                    git -C "$repo_dir" worktree remove "$worktree_path" 2>/dev/null || echo "  Warning: Could not remove $worktree_path"
+                                else
+                                    echo "$worktree_path | Last modified: $last_modified_date ($age_days days ago)"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+                worktree_path=""
+            fi
+        done
+    }
+done

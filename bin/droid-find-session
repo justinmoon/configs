@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Search for text across all Droid session JSONL files.
+
+set -euo pipefail
+
+SESSIONS_DIR="$HOME/.factory/sessions"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <search_text>
+
+Search for text across all Droid session JSONL files.
+
+Arguments:
+    search_text    Text string to search for in session files
+
+Examples:
+    $(basename "$0") "copy the nix setup"
+    $(basename "$0") "error in slipbox deployment"
+EOF
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    echo "Error: No search text provided" >&2
+    usage
+fi
+
+SEARCH_TEXT="$*"
+
+echo "Searching for: '$SEARCH_TEXT'"
+echo "In directory: $SESSIONS_DIR"
+echo ""
+
+FOUND=0
+
+for file in "$SESSIONS_DIR"/*.jsonl; do
+    [ -f "$file" ] || continue
+    
+    if grep -q -F "$SEARCH_TEXT" "$file" 2>/dev/null; then
+        FOUND=$((FOUND + 1))
+        SESSION_ID=$(basename "$file" .jsonl)
+        
+        # Try to extract the session title
+        TITLE=$(jq -r 'select(.type == "session_start") | .title' "$file" 2>/dev/null | head -1)
+        
+        # Get file size for context
+        SIZE=$(du -h "$file" | cut -f1)
+        
+        # Get modification time
+        MTIME=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$file")
+        
+        echo "✓ Found in: $SESSION_ID"
+        echo "  Title: $TITLE"
+        echo "  Size: $SIZE | Modified: $MTIME"
+        echo "  Path: $file"
+        echo ""
+    fi
+done
+
+if [ $FOUND -eq 0 ]; then
+    echo "No sessions found matching: '$SEARCH_TEXT'"
+    exit 1
+else
+    echo "Found in $FOUND session(s)"
+    exit 0
+fi

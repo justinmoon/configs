@@ -1,0 +1,296 @@
+#!/usr/bin/env bash
+# Capture a specific window and resize for reasonable file size.
+#
+# Usage:
+#   screenshot-window [--window TITLE] [--output FILE] [--width PIXELS]
+#   screenshot-window --help
+#
+# Examples:
+#   screenshot-window --window "QEMU" --output qemu-screen.png
+#   screenshot-window --window "Firefox" --width 1024
+#
+
+set -euo pipefail
+
+# Defaults
+WINDOW_TITLE=""
+OUTPUT_FILE="screenshot-$(date +%Y%m%d-%H%M%S).png"
+MAX_WIDTH=1280
+QUALITY=85
+
+usage() {
+    cat << EOF
+Usage: screenshot-window [OPTIONS]
+
+Capture a specific window and resize it to avoid huge file sizes.
+Perfect for sharing screenshots with AI coding agents.
+
+OPTIONS:
+    --window TITLE    Window title to search for (case-insensitive partial match)
+    --output FILE     Output filename (default: screenshot-TIMESTAMP.png)
+    --width PIXELS    Max width in pixels (default: 1280)
+    --quality N       JPEG quality 1-100 (default: 85)
+    --list            List all window titles and exit
+    --help            Show this help
+
+EXAMPLES:
+    # Screenshot QEMU window
+    screenshot-window --window "QEMU"
+    
+    # Screenshot with specific output name
+    screenshot-window --window "Firefox" --output firefox.png
+    
+    # Lower resolution for smaller file
+    screenshot-window --window "Terminal" --width 800
+    
+    # List available windows
+    screenshot-window --list
+
+NOTES:
+    - Uses CGWindowID to capture windows directly from WindowServer
+    - Window does NOT need to be focused or even fully visible
+    - Captures just the window content, not what's covering it
+    - Automatically resizes to max width while preserving aspect ratio
+    - Uses sips for efficient resizing without external dependencies
+    - Output is always PNG for compatibility
+EOF
+    exit 0
+}
+
+list_windows() {
+    echo "Available windows:"
+    echo
+    osascript -e '
+        tell application "System Events"
+            set windowList to {}
+            repeat with proc in (every process whose background only is false)
+                try
+                    set procName to name of proc
+                    repeat with win in (every window of proc)
+                        set winTitle to name of win
+                        if winTitle is not "" then
+                            set end of windowList to procName & ": " & winTitle
+                        end if
+                    end repeat
+                end try
+            end repeat
+            return windowList as text
+        end tell
+    ' | tr ',' '\n' | sort | uniq
+    exit 0
+}
+
+find_window_id() {
+    local title="$1"
+    
+    # Use Swift to get actual CGWindowID from WindowServer
+    # This allows us to capture windows regardless of visibility/focus
+    swift - "$title" <<'SWIFT'
+import Cocoa
+
+guard CommandLine.arguments.count > 1 else {
+    exit(1)
+}
+
+let searchTitle = CommandLine.arguments[1].lowercased()
+
+guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+    exit(1)
+}
+
+for window in windowList {
+    guard let windowLayer = window[kCGWindowLayer as String] as? Int,
+          windowLayer == 0 else {
+        continue
+    }
+    
+    let windowTitle = (window[kCGWindowName as String] as? String) ?? ""
+    let ownerName = (window[kCGWindowOwnerName as String] as? String) ?? ""
+    let windowID = window[kCGWindowNumber as String] as? Int ?? 0
+    
+    if windowTitle.lowercased().contains(searchTitle) || ownerName.lowercased().contains(searchTitle) {
+        print("\(windowID)|\(ownerName)|\(windowTitle)")
+        exit(0)
+    }
+}
+
+exit(1)
+SWIFT
+}
+
+capture_window() {
+    local window_title="$1"
+    local output="$2"
+    
+    echo "Searching for window: $window_title"
+    
+    # Try to find window
+    local window_info
+    window_info=$(find_window_id "$window_title")
+    
+    if [[ -z "$window_info" ]]; then
+        echo "Error: Could not find window matching '$window_title'" >&2
+        echo "Use --list to see available windows" >&2
+        exit 1
+    fi
+    
+    # Parse: windowID|owner|title
+    local window_id="${window_info%%|*}"
+    local rest="${window_info#*|}"
+    local owner="${rest%%|*}"
+    local title="${rest##*|}"
+    
+    echo "Found window: $owner - $title"
+    echo "Window ID: $window_id"
+    
+    # Capture using window ID - works even if window is covered/unfocused!
+    echo "Capturing screenshot (window doesn't need to be focused)..."
+    screencapture -o -l "$window_id" "$output"
+    
+    if [[ ! -f "$output" ]]; then
+        echo "Error: Screenshot capture failed" >&2
+        exit 1
+    fi
+    
+    echo "✓ Captured to: $output"
+}
+
+resize_image() {
+    local file="$1"
+    local max_width="$2"
+    
+    # Get current dimensions
+    local width
+    width=$(sips -g pixelWidth "$file" | tail -1 | awk '{print $2}')
+    
+    if [[ "$width" -gt "$max_width" ]]; then
+        echo "Resizing from ${width}px to ${max_width}px width..."
+        sips -Z "$max_width" "$file" >/dev/null
+        echo "✓ Resized"
+    else
+        echo "Image is already ${width}px (≤ ${max_width}px), no resize needed"
+    fi
+}
+
+get_file_size() {
+    local file="$1"
+    # Portable way to get file size
+    if stat -f%z "$file" 2>/dev/null; then
+        # BSD stat (macOS)
+        return
+    elif stat -c%s "$file" 2>/dev/null; then
+        # GNU stat (Linux)
+        return
+    else
+        # Fallback: use wc
+        wc -c < "$file" | tr -d ' '
+    fi
+}
+
+format_bytes() {
+    local bytes="$1"
+    if [[ $bytes -lt 1024 ]]; then
+        echo "${bytes}B"
+    elif [[ $bytes -lt $((1024 * 1024)) ]]; then
+        echo "$((bytes / 1024))KB"
+    else
+        echo "$((bytes / 1024 / 1024))MB"
+    fi
+}
+
+optimize_image() {
+    local file="$1"
+    local quality="$2"
+    
+    # Get file size before
+    local size_before
+    size_before=$(get_file_size "$file")
+    
+    # For very small files, skip optimization
+    if [[ $size_before -lt 102400 ]]; then
+        echo "Image is already small ($(format_bytes $size_before)), skipping optimization"
+        return
+    fi
+    
+    echo "Optimizing (quality: $quality)..."
+    
+    # Try to reduce PNG size with sips
+    # Setting format options to reduce quality
+    local temp="${file%.png}.temp.png"
+    cp "$file" "$temp"
+    
+    # Reduce to 8-bit color if possible
+    sips -s format png -s formatOptions normal "$temp" --out "$file" >/dev/null 2>&1
+    
+    # Get file size after
+    local size_after
+    size_after=$(get_file_size "$file")
+    
+    # If size increased, revert
+    if [[ $size_after -gt $size_before ]]; then
+        mv "$temp" "$file"
+        echo "Optimization didn't help, keeping original"
+    else
+        rm -f "$temp"
+        local reduction=$((100 - (size_after * 100 / size_before)))
+        echo "✓ Optimized: $(format_bytes $size_before) → $(format_bytes $size_after) (${reduction}% reduction)"
+    fi
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --window)
+            WINDOW_TITLE="$2"
+            shift 2
+            ;;
+        --output)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
+        --width)
+            MAX_WIDTH="$2"
+            shift 2
+            ;;
+        --quality)
+            QUALITY="$2"
+            shift 2
+            ;;
+        --list)
+            list_windows
+            ;;
+        --help|-h)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option $1" >&2
+            echo "Use --help for usage information" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [[ -z "$WINDOW_TITLE" ]]; then
+    echo "Error: --window is required" >&2
+    echo "Use --help for usage information" >&2
+    exit 1
+fi
+
+# Ensure output has .png extension
+if [[ "$OUTPUT_FILE" != *.png ]]; then
+    OUTPUT_FILE="${OUTPUT_FILE}.png"
+fi
+
+# Main workflow
+echo "screenshot-window v1.0"
+echo
+
+capture_window "$WINDOW_TITLE" "$OUTPUT_FILE"
+resize_image "$OUTPUT_FILE" "$MAX_WIDTH"
+optimize_image "$OUTPUT_FILE" "$QUALITY"
+
+echo
+echo "✓ Complete: $OUTPUT_FILE"
+echo "  Size: $(format_bytes $(get_file_size "$OUTPUT_FILE"))"
+echo "  Dimensions: $(sips -g pixelWidth "$OUTPUT_FILE" | tail -1 | awk '{print $2}')x$(sips -g pixelHeight "$OUTPUT_FILE" | tail -1 | awk '{print $2}')px"

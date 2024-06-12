@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+# Extract relevant context from Factory session JSONL files.
+import json
+import sys
+
+def extract_session_context(file_path, output_path=None):
+    """Extract user messages and assistant responses from a session file."""
+    
+    context = {
+        'user_messages': [],
+        'assistant_responses': [],
+        'tool_calls': [],
+        'files_created': [],
+        'files_modified': []
+    }
+    
+    with open(file_path, 'r') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+                
+                # Extract user messages
+                if entry.get('role') == 'user':
+                    content = entry.get('content', '')
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('type') == 'text':
+                                context['user_messages'].append(item.get('text', ''))
+                    elif isinstance(content, str):
+                        context['user_messages'].append(content)
+                
+                # Extract assistant responses
+                elif entry.get('role') == 'assistant':
+                    content = entry.get('content', '')
+                    if isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict):
+                                if item.get('type') == 'text':
+                                    text = item.get('text', '')
+                                    if text:
+                                        context['assistant_responses'].append(text)
+                                elif item.get('type') == 'tool_use':
+                                    tool_name = item.get('name', '')
+                                    tool_input = item.get('input', {})
+                                    context['tool_calls'].append({
+                                        'tool': tool_name,
+                                        'input': tool_input
+                                    })
+                                    
+                                    # Track file operations
+                                    if tool_name == 'Create':
+                                        context['files_created'].append(tool_input.get('file_path', ''))
+                                    elif tool_name in ['Edit', 'MultiEdit']:
+                                        context['files_modified'].append(tool_input.get('file_path', ''))
+                    elif isinstance(content, str):
+                        context['assistant_responses'].append(content)
+                        
+            except json.JSONDecodeError:
+                continue
+    
+    # Generate summary
+    summary = []
+    summary.append("=" * 80)
+    summary.append("SESSION CONTEXT SUMMARY")
+    summary.append("=" * 80)
+    summary.append(f"\nTotal user messages: {len(context['user_messages'])}")
+    summary.append(f"Total assistant responses: {len(context['assistant_responses'])}")
+    summary.append(f"Total tool calls: {len(context['tool_calls'])}")
+    summary.append(f"Files created: {len(context['files_created'])}")
+    summary.append(f"Files modified: {len(context['files_modified'])}")
+    
+    summary.append("\n" + "=" * 80)
+    summary.append("USER MESSAGES")
+    summary.append("=" * 80)
+    for i, msg in enumerate(context['user_messages'], 1):
+        summary.append(f"\n--- Message {i} ---")
+        summary.append(msg[:500] + ("..." if len(msg) > 500 else ""))
+    
+    summary.append("\n" + "=" * 80)
+    summary.append("FILES CREATED")
+    summary.append("=" * 80)
+    for file in context['files_created']:
+        summary.append(f"  - {file}")
+    
+    summary.append("\n" + "=" * 80)
+    summary.append("FILES MODIFIED")
+    summary.append("=" * 80)
+    for file in context['files_modified']:
+        summary.append(f"  - {file}")
+    
+    summary.append("\n" + "=" * 80)
+    summary.append("LAST FEW ASSISTANT RESPONSES")
+    summary.append("=" * 80)
+    for i, response in enumerate(context['assistant_responses'][-5:], 1):
+        summary.append(f"\n--- Response {len(context['assistant_responses']) - 5 + i} ---")
+        summary.append(response[:1000] + ("..." if len(response) > 1000 else ""))
+    
+    summary_text = "\n".join(summary)
+    
+    if output_path:
+        with open(output_path, 'w') as f:
+            f.write(summary_text)
+        print(f"Summary written to: {output_path}")
+    else:
+        print(summary_text)
+    
+    return context
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print("Usage: extract-session-context.py <session_file.jsonl> [output_file]")
+        sys.exit(1)
+    
+    session_file = sys.argv[1]
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    extract_session_context(session_file, output_file)

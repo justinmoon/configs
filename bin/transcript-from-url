@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Download video from URL and transcribe with Whisper.
+
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+    echo "Usage: transcript-from-url <url> [output-dir]"
+    echo "Example: transcript-from-url https://x.com/tsoding/status/1983417259294109724"
+    echo "Supports: Twitter/X, YouTube, and many other video platforms via yt-dlp"
+    exit 1
+fi
+
+URL="$1"
+OUTPUT_DIR="${2:-$PWD}"
+
+# Create temporary directory for downloads
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf $TEMP_DIR" EXIT
+
+echo "Downloading video from: $URL"
+
+# Download video/audio with yt-dlp
+# -f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best' - prefer mp4
+# --no-playlist - don't download playlists
+# -o - output template
+VIDEO_FILE="$TEMP_DIR/video.%(ext)s"
+yt-dlp -f 'bestaudio[ext=m4a]/bestaudio/best' \
+    --no-playlist \
+    -o "$VIDEO_FILE" \
+    "$URL"
+
+# Find the downloaded file (yt-dlp adds extension)
+DOWNLOADED_FILE=$(ls "$TEMP_DIR"/video.* | head -n 1)
+
+if [ ! -f "$DOWNLOADED_FILE" ]; then
+    echo "Error: Failed to download video"
+    exit 1
+fi
+
+echo "Downloaded: $DOWNLOADED_FILE"
+echo "Transcribing with Whisper..."
+
+# Transcribe with whisper
+# --model medium - balance between speed and accuracy
+# --output_format all - create txt, srt, vtt, tsv, json
+# --output_dir - where to save transcripts
+uvx --from openai-whisper whisper "$DOWNLOADED_FILE" \
+    --model medium \
+    --output_format all \
+    --output_dir "$OUTPUT_DIR"
+
+# Get the base name without extension
+BASENAME=$(basename "$DOWNLOADED_FILE" | sed 's/\.[^.]*$//')
+
+echo ""
+echo "Transcription complete!"
+echo "Files saved to: $OUTPUT_DIR"
+echo "  - $BASENAME.txt  (plain text)"
+echo "  - $BASENAME.srt  (subtitles)"
+echo "  - $BASENAME.vtt  (web subtitles)"
+echo "  - $BASENAME.tsv  (timestamps)"
+echo "  - $BASENAME.json (detailed output)"

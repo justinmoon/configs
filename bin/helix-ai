@@ -1,0 +1,32 @@
+#!/usr/bin/env fish
+
+# Helix AI Helper Script
+# Called by Helix AI plugin to process AI requests
+
+# Usage: helix-ai <prompt> [context-file]
+
+if test (count $argv) -lt 1
+    echo "Usage: helix-ai <prompt> [context-file]"
+    exit 1
+end
+
+set prompt $argv[1]
+set context_file ""
+
+if test (count $argv) -ge 2
+    set context_file $argv[2]
+end
+
+# Build the full prompt
+set full_prompt "You are a coding assistant. Provide ONLY the code requested, no explanations unless asked. Be concise and accurate.\n\n"
+
+# Add context if provided
+if test -n "$context_file" -a -f "$context_file"
+    set full_prompt "$full_prompt\nContext:\n"(cat "$context_file")"\n\n"
+end
+
+set full_prompt "$full_prompt\nRequest: $prompt"
+
+# Call llm (Simon Willison's CLI tool)
+# You can replace this with any AI tool: aider, openai cli, etc.
+echo "$full_prompt" | llm -m gpt-4

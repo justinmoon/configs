@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Run cargo clean in all Rust projects under current directory.
+find . -name Cargo.toml -type f -execdir cargo clean \;
+
+# delete all /node_modules directories in Javascript projects
+# find . -name package.json -type f -execdir rm -rf node_modules \;
+
+

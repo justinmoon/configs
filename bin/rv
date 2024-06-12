@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Review all git changes (staged, unstaged, untracked) with delta or difft.
+set -euo pipefail
+
+show_help() {
+    cat << EOF
+rv - Review all git changes (staged, unstaged, and untracked files)
+
+Usage: rv [OPTIONS] [REVISION]
+
+Options:
+    -d, --difft         Use difftastic instead of delta
+    -h, --help          Show this help message
+
+Arguments:
+    REVISION            Show changes from a commit (like git show)
+
+Examples:
+    rv                  # Review uncommitted changes with delta
+    rv -d               # Review uncommitted changes with difftastic
+    rv HEAD             # Review changes in HEAD commit
+    rv abc123           # Review changes in commit abc123
+    rv -d HEAD~1        # Review previous commit with difftastic
+EOF
+    exit 0
+}
+
+# Parse arguments
+USE_DIFFT=false
+REVISION=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -d|--difft)
+            USE_DIFFT=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            REVISION="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -n "$REVISION" ]; then
+    # Show a specific commit
+    if [ "$USE_DIFFT" = true ]; then
+        GIT_EXTERNAL_DIFF=difft git show "$REVISION"
+    else
+        git show "$REVISION" | delta
+    fi
+else
+    # Show uncommitted changes
+    if [ "$USE_DIFFT" = true ]; then
+        # Use difftastic as external diff tool
+        export GIT_EXTERNAL_DIFF=difft
+        
+        # Show all changes with difftastic
+        git diff HEAD
+        
+        # Untracked files - compare each against /dev/null
+        git ls-files --others --exclude-standard | while read -r file; do
+            if [ -f "$file" ]; then
+                echo "=== New file: $file ==="
+                difft /dev/null "$file" 2>/dev/null || true
+            fi
+        done
+    else
+        # Use delta (pipe all diffs together)
+        {
+            # Staged and unstaged changes
+            git diff HEAD 2>/dev/null || true
+            
+            # Untracked files
+            git ls-files --others --exclude-standard | while read -r file; do
+                git diff --no-index /dev/null "$file" 2>/dev/null || true
+            done
+        } | delta
+    fi
+fi

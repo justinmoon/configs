@@ -1,0 +1,109 @@
+[[language]]
+name = "text"
+scope = "text.plain"
+file-types = ["txt"]
+soft-wrap.enable = true
+
+[[language]]
+name = "vibe-temp"
+scope = "text.plain"
+file-types = [{ glob = "/tmp/vibe.*" }]
+soft-wrap.enable = true
+
+[[language]]
+name = "markdown"
+soft-wrap.enable = true
+
+[[language]]
+name = "nix"
+file-types = ["nix"]
+
+[[language]]
+name = "typescript"
+auto-format = true
+formatter.command = "prettier"
+formatter.args = ["--parser", "typescript"]
+
+
+##########
+# Python #
+##########
+
+[language-server.pylsp.config.pylsp]
+plugins.jedi_completion.enabled = true
+plugins.jedi_definition.enabled = true
+# plugins.jedi_completion.include_params = true
+plugins.ruff.enabled = true
+plugins.black.enabled = false
+plugins.pylint.enabled = false
+plugins.pyflakes.enabled = false
+plugins.pyls_mypy.enabled = false
+plugins.pyls_mypy.live_mode = false
+plugins.isort.enabled = false
+plugins.rope_autoimport.enabled = true
+plugins.rope_completion.enabled = true
+
+[[language]]
+name = "python"
+language-servers = ["pylsp"]
+auto-format = true
+roots = ["pyproject.toml", "setup.py", "poetry.lock", "pyrightconfig.json"]
+formatter = { command = "ruff", args = ["format", "-"] }
+
+
+#######
+# PYX #
+#######
+
+[language-server.pyx-ls]
+command = "pyx-ls"
+
+[[language]]
+name = "pyx"
+scope = "source.pyx"
+injection-regex = "pyx"
+file-types = ["pyx"]
+language-servers = ["pyx-ls"]
+comment-tokens = ["#"]
+indent = { tab-width = 4, unit = "    " }
+# Use Python grammar for syntax highlighting since PYX is Python with JSX
+grammar = "python"
+
+
+# TODO: Maybe this should be project-specific???
+[[language]]
+name = "htmldjango"
+scope = "source.htmldjango"
+file-types = ["*.html"]
+roots = []
+auto-format = true
+formatter = { command = "djlint", args = ["-", "--reformat", "--quiet"] }
+
+[[grammar]]
+name = "htmldjango"
+source = { git = "https://github.com/interdependence/tree-sitter-htmldjango", rev = "b2dba02eddab66be669022320273d0dfe1ff923d" }
+
+[[language]]
+name = "html"
+language-servers = ["vscode-html-language-server"]
+
+[[language]]
+name = "go"
+language-servers = ["gopls"]
+
+[[language]]
+name = "toml"
+formatter = { command = "taplo", args = ["format", "-"] }
+auto-format = true
+
+[[language]]
+name = "rust"
+language-servers = ["rust-analyzer"]
+auto-format = true
+formatter = { command = "rustfmt" }
+
+[[language]]
+name = "zig"
+language-servers = ["zls"]
+auto-format = true
+formatter = { command = "zig", args = ["fmt", "--stdin"] }

@@ -1,0 +1,2 @@
+# scheme = nord
+--color=bg+:#3B4252,bg:#2E3440,spinner:#81A1C1,hl:#88C0D0 --color=fg:#E5E9F0,header:#88C0D0,info:#81A1C1,pointer:#81A1C1 --color=marker:#81A1C1,fg+:#ECEFF4,prompt:#81A1C1,hl+:#88C0D0 --color=border:#4C566A

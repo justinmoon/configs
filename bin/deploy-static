@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Deploy a static site to justinmoon.com/s/<app-name> via rsync.
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Configuration
+SERVER="justin@135.181.179.143"
+STATIC_BASE="/var/www/static/s"
+
+# Function to show usage
+usage() {
+    echo "Usage: deploy-static <app-name> [build-dir]"
+    echo ""
+    echo "Deploy a static site to justinmoon.com/s/<app-name>"
+    echo ""
+    echo "Arguments:"
+    echo "  app-name   - Name of your app (will be the URL path)"
+    echo "  build-dir  - Directory containing built files (default: dist)"
+    echo ""
+    echo "Examples:"
+    echo "  deploy-static myapp           # Deploys ./dist to justinmoon.com/s/myapp"
+    echo "  deploy-static myapp build     # Deploys ./build to justinmoon.com/s/myapp"
+    echo "  deploy-static test-app public # Deploys ./public to justinmoon.com/s/test-app"
+    exit 1
+}
+
+# Check arguments
+if [ $# -eq 0 ]; then
+    usage
+fi
+
+APP_NAME="$1"
+BUILD_DIR="${2:-dist}"
+
+# Validate app name (alphanumeric, dash, underscore only)
+if ! [[ "$APP_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo -e "${RED}Error: App name must be alphanumeric with dashes/underscores only${NC}"
+    exit 1
+fi
+
+# Check if build directory exists
+if [ ! -d "$BUILD_DIR" ]; then
+    echo -e "${RED}Error: Build directory '$BUILD_DIR' not found${NC}"
+    echo "Make sure you've built your project first (npm run build, etc.)"
+    exit 1
+fi
+
+# Calculate size
+SIZE=$(du -sh "$BUILD_DIR" | cut -f1)
+echo -e "${YELLOW}Deploying '$BUILD_DIR' ($SIZE) to justinmoon.com/s/$APP_NAME${NC}"
+
+# Create remote directory if it doesn't exist
+echo -e "${YELLOW}Preparing remote directory...${NC}"
+ssh "$SERVER" "mkdir -p $STATIC_BASE"
+
+# Deploy files using rsync
+echo -e "${YELLOW}Uploading files...${NC}"
+rsync -avz --delete \
+    --exclude='.git' \
+    --exclude='node_modules' \
+    --exclude='.DS_Store' \
+    "$BUILD_DIR/" \
+    "$SERVER:$STATIC_BASE/$APP_NAME/"
+
+# Set proper permissions
+ssh "$SERVER" "chmod -R 755 $STATIC_BASE/$APP_NAME"
+
+echo -e "${GREEN}✅ Deployment complete!${NC}"
+echo -e "${GREEN}Your app is available at: https://justinmoon.com/s/$APP_NAME${NC}"
+echo ""
+echo "Quick links:"
+echo "  • View: https://justinmoon.com/s/$APP_NAME"
+echo "  • Browse files: https://justinmoon.com/s/ (then click $APP_NAME)"

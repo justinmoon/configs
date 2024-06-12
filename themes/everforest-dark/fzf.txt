@@ -1,0 +1,2 @@
+# scheme = everforest-dark
+--color=bg+:#323c41,bg:#2b3339,spinner:#83c092,hl:#d699b6 --color=fg:#d3c6aa,header:#dbbc7f,info:#7fbbb3,pointer:#a7c080 --color=marker:#7fbbb3,fg+:#d3c6aa,prompt:#dbbc7f,hl+:#d699b6 --color=border:#4a555b

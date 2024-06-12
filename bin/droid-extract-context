@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# Extract context from a Droid session for handoff to a new agent.
+
+set -euo pipefail
+
+SESSIONS_DIR="$HOME/.factory/sessions"
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <session_id_or_search_text>
+
+Extract relevant context from a Droid session for handoff to a new agent.
+
+Arguments:
+    session_id_or_search_text    Either a UUID session ID or text to search for
+
+If search text is provided and matches exactly one session, extracts context from it.
+
+Examples:
+    $(basename "$0") 00b59c2f-f544-4a6e-a87d-b55d53d8f1c6
+    $(basename "$0") "copy the nix setup"
+EOF
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    echo "Error: No session ID or search text provided" >&2
+    usage
+fi
+
+INPUT="$*"
+
+# Check if input looks like a UUID
+if [[ "$INPUT" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+    SESSION_FILE="$SESSIONS_DIR/$INPUT.jsonl"
+    if [ ! -f "$SESSION_FILE" ]; then
+        echo "Error: Session file not found: $SESSION_FILE" >&2
+        exit 1
+    fi
+else
+    # Search for the text
+    MATCHES=()
+    for file in "$SESSIONS_DIR"/*.jsonl; do
+        [ -f "$file" ] || continue
+        if grep -q -F "$INPUT" "$file" 2>/dev/null; then
+            MATCHES+=("$file")
+        fi
+    done
+    
+    if [ ${#MATCHES[@]} -eq 0 ]; then
+        echo "Error: No sessions found matching: '$INPUT'" >&2
+        exit 1
+    elif [ ${#MATCHES[@]} -gt 1 ]; then
+        echo "Error: Multiple sessions found matching: '$INPUT'" >&2
+        echo "Please be more specific or use session ID directly:" >&2
+        for file in "${MATCHES[@]}"; do
+            SESSION_ID=$(basename "$file" .jsonl)
+            TITLE=$(jq -r 'select(.type == "session_start") | .title' "$file" 2>/dev/null | head -1)
+            echo "  $SESSION_ID - $TITLE" >&2
+        done
+        exit 1
+    else
+        SESSION_FILE="${MATCHES[0]}"
+    fi
+fi
+
+SESSION_ID=$(basename "$SESSION_FILE" .jsonl)
+
+echo "# Context from Droid Session: $SESSION_ID"
+echo ""
+
+# Extract session title and metadata
+jq -r 'select(.type == "session_start") | 
+    "## Session: " + .title + "\n" +
+    "Session ID: " + .id + "\n" +
+    "Owner: " + .owner' "$SESSION_FILE" 2>/dev/null | head -1
+
+echo ""
+echo "---"
+echo ""
+echo "## Conversation History"
+echo ""
+
+# Extract user messages and assistant responses, filtering out noise
+jq -r '
+select(.type == "message") | 
+.message | 
+if .role == "user" then
+    # For user messages, extract only the actual user text (skip system reminders)
+    .content[] | 
+    select(.type == "text" and (.text | startswith("<system-reminder>") | not)) | 
+    "### USER:\n" + .text + "\n"
+elif .role == "assistant" then
+    # For assistant messages, extract text responses and tool uses
+    "### ASSISTANT:\n" +
+    (.content[] | 
+        if .type == "text" then
+            .text + "\n"
+        elif .type == "tool_use" then
+            "**Tool: " + .name + "**\n```json\n" + (.input | tostring) + "\n```\n"
+        else
+            empty
+        end
+    ) + "\n"
+else
+    empty
+end
+' "$SESSION_FILE" 2>/dev/null
+
+echo ""
+echo "---"
+echo ""
+echo "## Files Modified"
+echo ""
+
+# Extract file paths from tool calls
+jq -r '
+select(.type == "message" and .message.role == "assistant") |
+.message.content[] |
+select(.type == "tool_use") |
+if .name == "Edit" or .name == "MultiEdit" or .name == "Create" then
+    .input.file_path
+elif .name == "Read" then
+    .input.file_path
+else
+    empty
+end
+' "$SESSION_FILE" 2>/dev/null | sort -u | while read -r file; do
+    echo "- $file"
+done
+
+echo ""
+echo "---"
+echo ""
+echo "## Commands Executed"
+echo ""
+
+# Extract executed commands
+jq -r '
+select(.type == "message" and .message.role == "assistant") |
+.message.content[] |
+select(.type == "tool_use" and .name == "Execute") |
+"```bash\n" + .input.command + "\n```\n"
+' "$SESSION_FILE" 2>/dev/null
+
+echo ""
+echo "---"
+echo ""
+echo "To view full session: cat $SESSION_FILE | jq"

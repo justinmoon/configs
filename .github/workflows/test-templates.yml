@@ -1,0 +1,53 @@
+name: Test Project Templates
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'templates/**'
+      - '.github/workflows/test-templates.yml'
+  pull_request:
+    paths:
+      - 'templates/**'
+      - '.github/workflows/test-templates.yml'
+
+jobs:
+  test-rust-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v12
+
+      - name: Configure cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Test Rust template
+        run: |
+          cd templates/rust
+          # Replace placeholder
+          sed -i 's/PROJECT_NAME/test-rust-project/g' Cargo.toml
+          
+          # Run CI
+          nix run .#ci
+
+  test-typescript-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v12
+
+      - name: Configure cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Test TypeScript template
+        run: |
+          cd templates/typescript
+          # Replace placeholder
+          sed -i 's/PROJECT_NAME/test-typescript-project/g' package.json
+          
+          # Run CI
+          nix run .#ci

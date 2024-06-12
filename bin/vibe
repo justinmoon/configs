@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Create a capsule session and attach an AI agent.
+set -euo pipefail
+
+agent=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --agent|-a) agent="$2"; shift 2 ;;
+    *) break ;;
+  esac
+done
+
+repo=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+prompt="${*:-}"
+
+# Create session
+output=$(nix run /home/justin/capsule -- create --repo "$repo" --prompt "$prompt" 2>&1)
+echo "$output"
+
+session_id=$(echo "$output" | grep "ID:" | head -1 | awk '{print $2}')
+
+if [[ -z "$session_id" ]]; then
+  echo "Failed to create session"
+  exit 1
+fi
+
+# Attach and launch agent
+if [[ -n "$agent" ]]; then
+  exec nix run /home/justin/capsule -- attach-agent "$session_id" "$agent"
+else
+  exec nix run /home/justin/capsule -- attach-vibe "$session_id"
+fi

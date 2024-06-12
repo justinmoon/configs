@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Rsync a directory while respecting .gitignore rules.
+if [ $# -ne 2 ]; then
+  echo "Usage: hsync <local-path> <remote-path>" >&2
+  exit 1
+fi
+rsync -av --filter=':- .gitignore' --exclude='.git' "$1/" "$2/"

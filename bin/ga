@@ -1,0 +1,4 @@
+#!/bin/bash
+# Create a new worktree and branch from within current git directory.
+echo "ga is a fish function - run it directly in fish, not as a script." >&2
+exit 1

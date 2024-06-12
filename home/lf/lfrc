@@ -1,0 +1,4 @@
+cmd open-in-hx %{
+    tmux send-keys -t right ":open \"$f\"" Enter
+}
+map l open-in-hx

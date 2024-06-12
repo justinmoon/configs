@@ -1,0 +1,18 @@
+#!/bin/bash
+# Launch AI tools (codex, claude) with dangerous permissions bypassed.
+
+case "$1" in
+    codex)
+        codex --dangerously-bypass-approvals-and-sandbox
+        ;;
+    claude|cc)
+        claude --dangerously-skip-permissions
+        ;;
+    *)
+        echo "Usage: danger <command>"
+        echo "Commands:"
+        echo "  codex       Launch codex with dangerous bypass flag"
+        echo "  claude, cc  Launch claude with dangerous skip permissions"
+        exit 1
+        ;;
+esac

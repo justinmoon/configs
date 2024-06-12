@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# List all commands in bin folder with their descriptions.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+for script in "$SCRIPT_DIR"/*; do
+    [[ -f "$script" ]] || continue
+    name="$(basename "$script")"
+    [[ "$name" == "bin" ]] && continue  # skip self
+    
+    # Try to extract description comment from early lines
+    desc=""
+    while IFS= read -r line; do
+        # Skip shebang and empty lines
+        [[ "$line" =~ ^#! ]] && continue
+        [[ -z "$line" ]] && continue
+        [[ "$line" == set* ]] && continue
+        
+        # Skip empty bash comments (just #)
+        [[ "$line" == "#" ]] && continue
+        
+        # Found a bash comment line - extract description
+        if [[ "$line" =~ ^#\ (.+) ]]; then
+            desc="${BASH_REMATCH[1]}"
+            break
+        fi
+        
+        # Found a JS/TS comment line - extract description
+        if [[ "$line" =~ ^//\ (.+) ]]; then
+            desc="${BASH_REMATCH[1]}"
+            break
+        fi
+        
+        # For Python docstrings
+        if [[ "$line" =~ ^\"\"\" ]] || [[ "$line" =~ ^\'\'\' ]]; then
+            desc="${line//\"\"\"/}"
+            desc="${desc//\'\'\'/}"
+            break
+        fi
+        
+        # Non-comment, non-empty line - stop looking
+        break
+    done < "$script"
+    
+    if [[ -n "$desc" ]]; then
+        printf "%-25s %s\n" "$name" "$desc"
+    else
+        printf "%-25s %s\n" "$name" "(no description)"
+    fi
+done

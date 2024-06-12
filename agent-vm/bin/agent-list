@@ -1,0 +1,88 @@
+# agent-list: List all agent VM sessions
+# Usage: agent-list [--json]
+
+SESSIONS_DIR="${AGENT_VM_SESSIONS:-$HOME/.agent-vm/sessions}"
+
+JSON_OUTPUT=false
+if [ "${1:-}" = "--json" ]; then
+  JSON_OUTPUT=true
+fi
+
+if [ ! -d "$SESSIONS_DIR" ]; then
+  if $JSON_OUTPUT; then
+    echo "[]"
+  else
+    echo "No sessions found. Create one with 'agent-spawn'."
+  fi
+  exit 0
+fi
+
+# Collect all session metadata
+SESSIONS=()
+for dir in "$SESSIONS_DIR"/*/; do
+  if [ -d "$dir" ]; then
+    META_FILE="$dir/meta.json"
+    if [ -f "$META_FILE" ]; then
+      SESSIONS+=("$META_FILE")
+    fi
+  fi
+done
+
+if [ ${#SESSIONS[@]} -eq 0 ]; then
+  if $JSON_OUTPUT; then
+    echo "[]"
+  else
+    echo "No sessions found. Create one with 'agent-spawn'."
+  fi
+  exit 0
+fi
+
+if $JSON_OUTPUT; then
+  # Output as JSON array
+  echo "["
+  first=true
+  for meta in "${SESSIONS[@]}"; do
+    if $first; then
+      first=false
+    else
+      echo ","
+    fi
+    cat "$meta"
+  done
+  echo "]"
+else
+  # Pretty table output
+  printf "%-10s %-10s %-6s %-40s %s\n" "ID" "STATUS" "PORT" "REPO" "CREATED"
+  printf "%-10s %-10s %-6s %-40s %s\n" "----------" "----------" "------" "----------------------------------------" "------------------------"
+
+  for meta in "${SESSIONS[@]}"; do
+    ID=$(jq -r '.id // "?"' "$meta")
+    STATUS=$(jq -r '.status // "?"' "$meta")
+    PORT=$(jq -r '.port // "?"' "$meta")
+    REPO=$(jq -r '.repo // "?"' "$meta")
+    CREATED=$(jq -r '.created // "?"' "$meta")
+
+    # Truncate repo if too long
+    if [ ${#REPO} -gt 40 ]; then
+      REPO="${REPO:0:37}..."
+    fi
+
+    # Color status
+    case "$STATUS" in
+      running)
+        STATUS_DISPLAY="\033[32m$STATUS\033[0m"  # Green
+        ;;
+      stopped)
+        STATUS_DISPLAY="\033[31m$STATUS\033[0m"  # Red
+        ;;
+      created)
+        STATUS_DISPLAY="\033[33m$STATUS\033[0m"  # Yellow
+        ;;
+      *)
+        STATUS_DISPLAY="$STATUS"
+        ;;
+    esac
+
+    printf "%-10s %-10b %-6s %-40s %s\n" "$ID" "$STATUS_DISPLAY" "$PORT" "$REPO" "$CREATED"
+  done
+fi

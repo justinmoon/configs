@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Recursively remove build directories (node_modules, target, dist, etc).
+
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+    echo "Usage: clean-build-folders <path>"
+    echo "Recursively removes build directories for JavaScript, Rust, and Zig projects"
+    exit 1
+fi
+
+TARGET_PATH="$1"
+
+if [ ! -d "$TARGET_PATH" ]; then
+    echo "Error: Directory '$TARGET_PATH' does not exist"
+    exit 1
+fi
+
+echo "Cleaning build folders in: $TARGET_PATH"
+echo ""
+
+# Find and remove build directories
+# JavaScript: node_modules, dist, build, .next, .nuxt
+# Rust: target
+# Zig: zig-cache, zig-out
+
+find "$TARGET_PATH" -type d \( \
+    -name "node_modules" -o \
+    -name "dist" -o \
+    -name "build" -o \
+    -name ".next" -o \
+    -name ".nuxt" -o \
+    -name "target" -o \
+    -name "zig-cache" -o \
+    -name "zig-out" \
+\) -print -exec rm -rf {} + 2>/dev/null || true
+
+echo ""
+echo "Done cleaning build folders"
