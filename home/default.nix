@@ -23,19 +23,6 @@
     config.allowUnfree = true;
   });
   
-  # Custom Helix with Steel plugin system (DISABLED for now - using nixpkgs helix)
-  # helix-steel =
-  #   let
-  #     steelPkgs = inputs.helix-steel.packages.${pkgs.system};
-  #     steelPackage =
-  #       if pkgs ? helix-steel then pkgs.helix-steel
-  #       else if steelPkgs ? helix
-  #       then steelPkgs.helix.overrideAttrs (old: old // {
-  #         cargoBuildFeatures = (old.cargoBuildFeatures or [ "git" ]) ++ [ "steel" ];
-  #       })
-  #       else pkgs.helix;
-  #   in steelPackage;
-  
   # Config root: for agents, use store paths; for hosts, use live symlinks
   # IMPORTANT: Sprite/agent tarballs are intended to be public artifacts, so we must not
   # accidentally capture sensitive or huge local files (e.g. tracked SSH key handle files,
@@ -63,20 +50,6 @@
     if isAgent || isSprite
     then "${configRoot}/${rel}"
     else config.lib.file.mkOutOfStoreSymlink "${configRoot}/${rel}";
-  helixUpstreamLocalPath = "${homeDirectory}/code/helix-config";
-  helixUpstreamHasLocal = builtins.pathExists helixUpstreamLocalPath;
-  helixUpstreamDirSource =
-    if isAgent || isSprite
-    then inputs.helix-config
-    else if helixUpstreamHasLocal
-    then config.lib.file.mkOutOfStoreSymlink helixUpstreamLocalPath
-    else inputs.helix-config;
-  mkHelixUpstreamLink = rel:
-    if isAgent || isSprite
-    then builtins.toPath "${inputs.helix-config}/${rel}"
-    else if helixUpstreamHasLocal
-    then config.lib.file.mkOutOfStoreSymlink "${helixUpstreamLocalPath}/${rel}"
-    else builtins.toPath "${inputs.helix-config}/${rel}";
   ngit = pkgs.callPackage ./ngit.nix {};
   npmGlobalDir = "${homeDirectory}/.npm-global";
   spritePackages =
@@ -254,35 +227,6 @@ home.sessionVariables = {
       ".config/i3/config".source = mkConfigLink "i3/config";
       ".config/helix/config.toml".source = mkConfigLink "helix/config.toml";
       ".config/helix/languages.toml".source = mkConfigLink "helix/languages.toml";
-      ".config/helix/init.scm".source = mkConfigLink "helix/init.scm";
-      ".config/helix/local".source = mkConfigLink "../helix-plugins";
-      ".config/helix/plugins".source = mkConfigLink "../helix-plugins";
-      ".config/helix/upstream".source = helixUpstreamDirSource;
-      ".config/helix/helix.scm" = {
-        source = mkHelixUpstreamLink "helix.scm";
-        force = true;
-      };
-      ".config/helix/focus.scm" = {
-        source = mkHelixUpstreamLink "focus.scm";
-        force = true;
-      };
-      ".config/helix/splash.scm" = {
-        source = mkHelixUpstreamLink "splash.scm";
-        force = true;
-      };
-      ".config/helix/term.scm" = {
-        source = mkHelixUpstreamLink "term.scm";
-        force = true;
-      };
-      ".config/helix/cog.scm" = {
-        source = mkHelixUpstreamLink "cog.scm";
-        force = true;
-      };
-      ".config/helix/cogs".source = mkHelixUpstreamLink "cogs";
-      ".config/helix/upstream-init.scm" = {
-        source = mkHelixUpstreamLink "init.scm";
-        force = true;
-      };
 
       ".config/kotlin-language-server/settings.json".text = ''
         {
@@ -688,10 +632,8 @@ home.sessionVariables = {
       '';
   };
 
-  # Helix editor (using standard nixpkgs version for now)
   programs.helix = {
     enable = true;
-    # package = helix-steel;  # DISABLED - using default nixpkgs helix
   };
 
   programs.starship = {

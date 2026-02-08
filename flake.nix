@@ -27,12 +27,6 @@
     # Cuttlefish packages and modules
     cuttlefish.url = "github:justinmoon/fundroid?dir=cuttlefish&ref=cf-pid1-logging-codex";
     cuttlefish.inputs.nixpkgs.follows = "nixpkgs";
-    # Helix with Steel plugin system
-    helix-steel.url = "github:mattwparas/helix/steel-event-system";
-    helix-config = {
-      url = "github:mattwparas/helix-config";
-      flake = false;
-    };
     # Context Graph - TypeScript code ingestion into Kuzu graph DB
     cg = {
       url = "github:justinmoon/context-graph";
@@ -59,7 +53,6 @@
     nur,
     flake-utils,
     disko,
-    helix-steel,
     cuttlefish,
     ...
   }: let
@@ -80,13 +73,6 @@
         inherit system;
         overlays = [
           customPackagesOverlay
-          (final: prev: {
-            helix-steel = helix-steel.packages.${system}.helix.overrideAttrs (
-              old: old // {
-                cargoBuildFeatures = (old.cargoBuildFeatures or [ "git" ]) ++ [ "steel" ];
-              }
-            );
-          })
         ];
       };
     in {
@@ -268,7 +254,6 @@
         '';
       };
 
-      packages.helix-steel = pkgs.helix-steel;
     });
   in ({
       darwinConfigurations."mac" = nix-darwin.lib.darwinSystem {
