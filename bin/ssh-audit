@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# Audit which SSH keys exist in ~/.ssh and which are actually referenced by your ssh config.
+# Does not print key material.
+set -euo pipefail
+
+SSH_DIR="${HOME}/.ssh"
+
+if [[ ! -d "$SSH_DIR" ]]; then
+  echo "No ~/.ssh directory found."
+  exit 0
+fi
+
+cfg="$SSH_DIR/config"
+if [[ ! -f "$cfg" ]]; then
+  echo "No ~/.ssh/config found."
+  exit 0
+fi
+
+echo "== ssh-audit =="
+echo "ssh_dir: $SSH_DIR"
+echo "config:   $cfg"
+echo ""
+
+hosts=$(
+  awk '
+    BEGIN{IGNORECASE=1}
+    $1=="Host" {
+      for (i=2; i<=NF; i++) {
+        if ($i != "*" && $i !~ /[*?]/) print $i
+      }
+    }
+  ' "$cfg" | sort -u
+)
+
+echo "== Hosts In ~/.ssh/config =="
+if [[ -z "${hosts:-}" ]]; then
+  echo "(none found)"
+else
+  echo "$hosts"
+fi
+echo ""
+
+echo "== Host -> IdentityFiles (ssh -G) =="
+used_idfiles_tmp="$(mktemp)"
+trap 'rm -f "$used_idfiles_tmp"' EXIT
+
+if [[ -n "${hosts:-}" ]]; then
+  while IFS= read -r h; do
+    [[ -n "$h" ]] || continue
+    echo "--- $h"
+    # ssh -G shows the effective config without connecting.
+    ssh -G "$h" 2>/dev/null | awk '
+      $1=="identityfile" {print "identityfile " $2}
+      $1=="identityagent" {print "identityagent " $2}
+      $1=="identitiesonly" {print "identitiesonly " $2}
+      $1=="user" {print "user " $2}
+      $1=="hostname" {print "hostname " $2}
+      $1=="forwardagent" {print "forwardagent " $2}
+      $1=="addkeystoagent" {print "addkeystoagent " $2}
+    '
+    ssh -G "$h" 2>/dev/null | awk '$1=="identityfile"{print $2}' >>"$used_idfiles_tmp"
+  done <<<"$hosts"
+else
+  echo "(skipped; no explicit hosts)"
+fi
+echo ""
+
+used_idfiles="$(sort -u "$used_idfiles_tmp" | sed '/^$/d')"
+used_idfiles_abs_tmp="$(mktemp)"
+trap 'rm -f "$used_idfiles_tmp" "$used_idfiles_abs_tmp"' EXIT
+if [[ -n "${used_idfiles:-}" ]]; then
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
+    case "$p" in
+      "~/"*) printf '%s\n' "${p/#\~/$HOME}" ;;
+      *) printf '%s\n' "$p" ;;
+    esac
+  done <<<"$used_idfiles" | sort -u >"$used_idfiles_abs_tmp"
+fi
+
+echo "== IdentityFiles Used =="
+if [[ -z "${used_idfiles:-}" ]]; then
+  echo "(none)"
+else
+  echo "$used_idfiles"
+fi
+echo ""
+
+echo "== Private Keys Present In ~/.ssh =="
+present_priv=$(
+  find "$SSH_DIR" -maxdepth 1 -type f \
+    ! -name '*.pub' \
+    ! -name 'known_hosts*' \
+    ! -name 'config' \
+    -print 2>/dev/null | sort
+)
+
+if [[ -z "${present_priv:-}" ]]; then
+  echo "(none)"
+else
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    # Prefer octal perms; portable across macOS + GNU coreutils.
+    if stat --version >/dev/null 2>&1; then
+      perms="$(stat -c '%a' "$f" 2>/dev/null || echo '?')"
+    else
+      perms="$(stat -f '%OLp' "$f" 2>/dev/null || echo '?')"
+    fi
+    echo "$f ($perms)"
+  done <<<"$present_priv"
+fi
+echo ""
+
+echo "== Present But Unused (by IdentityFile) =="
+if [[ -z "${present_priv:-}" ]]; then
+  echo "(none)"
+else
+  unused=0
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    if ! grep -qxF "$f" "$used_idfiles_abs_tmp" 2>/dev/null; then
+      echo "$f"
+      unused=1
+    fi
+  done <<<"$present_priv"
+  if [[ "$unused" -eq 0 ]]; then
+    echo "(none)"
+  fi
+fi
+echo ""
+
+echo "== Notes =="
+echo "- This script does not connect to any host; it only runs \`ssh -G\`."
+echo "- If you rely on implicit/default keys (no IdentityFile), this audit won't detect that usage."

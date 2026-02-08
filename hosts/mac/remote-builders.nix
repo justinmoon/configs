@@ -9,7 +9,7 @@
 {
   # Create /etc/nix/machines file for remote builders
   environment.etc."nix/machines".text = ''
-    ssh://justin@135.181.179.143 x86_64-linux /Users/justin/.ssh/id_ed25519 4 2 nixos-test,benchmark,big-parallel,kvm
+    ssh://justin@100.73.239.5 x86_64-linux /Users/justin/.ssh/id_ed25519 4 2 nixos-test,benchmark,big-parallel,kvm
   '';
   
   # Add to /etc/nix/nix.custom.conf (which is included by nix.conf)

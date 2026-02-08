@@ -97,8 +97,8 @@
 
   # System-wide known_hosts so the nix-daemon (root) can reach the Hetzner builder.
   environment.etc."ssh/ssh_known_hosts".text = ''
-    # hetzner remote builder
-    135.181.179.143 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICXARrNYBbxNZDGiMWh63DZP6Vu6Rh/Q3fpKh0OMIBOt
+    # hetzner remote builder (Tailscale IP — SSH is Tailscale-only)
+    100.73.239.5 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICXARrNYBbxNZDGiMWh63DZP6Vu6Rh/Q3fpKh0OMIBOt
   '';
 
   # Match the GID used by Determinate Nix installer (which we migrated from)

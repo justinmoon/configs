@@ -21,7 +21,7 @@
   nix.distributedBuilds = true;
   nix.buildMachines = [
     {
-      hostName = "135.181.179.143";
+      hostName = "100.73.239.5";  # Tailscale IP (SSH is Tailscale-only)
       sshUser = "justin";
       sshKey = "/Users/justin/.ssh/id_ed25519_hetzner";
       system = "x86_64-linux";

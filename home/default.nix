@@ -370,15 +370,19 @@ home.sessionVariables = {
       @mariozechner/pi-coding-agent
   '');
 
-  # Factory Droid CLI: auto-update to latest on activation, like Claude/Codex.
+  # Factory Droid CLI: install if missing, skip if already present (~2 min download).
+  # To force update: rm ~/.local/bin/droid && just switch mac
   # Wrapped in subshell to avoid PATH leak affecting subsequent activation scripts
   home.activation.ensureDroidCli = lib.mkIf (!(isAgent || isSprite)) (lib.hm.dag.entryAfter ["writeBoundary"] ''
-    (
-      export PATH="${pkgs.curl}/bin:${pkgs.gawk}/bin:${pkgs.coreutils}/bin:${pkgs.gnutar}/bin:${pkgs.gzip}/bin:/usr/bin:$PATH"
-      # Remove existing binary first to avoid "Text file busy" error
-      rm -f ~/.local/bin/droid ~/.local/bin/rg 2>/dev/null || true
-      ${pkgs.curl}/bin/curl -fsSL https://app.factory.ai/cli | ${pkgs.bash}/bin/bash
-    )
+    if [ -x ~/.local/bin/droid ]; then
+      echo "Droid CLI already installed, skipping (rm ~/.local/bin/droid to force update)"
+    else
+      (
+        export PATH="${pkgs.curl}/bin:${pkgs.gawk}/bin:${pkgs.coreutils}/bin:${pkgs.gnutar}/bin:${pkgs.gzip}/bin:/usr/bin:$PATH"
+        rm -f ~/.local/bin/droid ~/.local/bin/rg 2>/dev/null || true
+        ${pkgs.curl}/bin/curl -fsSL https://app.factory.ai/cli | ${pkgs.bash}/bin/bash
+      )
+    fi
   '');
 
   # Install opencode tool dependencies
