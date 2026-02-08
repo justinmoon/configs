@@ -64,6 +64,14 @@ secret-view name:
     echo "Decrypting {{name}}... (tap YubiKey)"
     age -d -i "{{IDENTITY}}" "$SECRET_FILE"
 
+# Scan for leaked secrets. Uses nix so you don't need to install anything globally.
+secrets-scan:
+    nix shell nixpkgs#gitleaks -c gitleaks detect --source . --redact --no-banner
+
+# Like `secrets-scan` but scans the working directory as-is (includes untracked files).
+secrets-scan-fs:
+    nix shell nixpkgs#gitleaks -c gitleaks detect --source . --no-git --redact --no-banner
+
 # =============================================================================
 # SSH Key Bootstrap
 # =============================================================================

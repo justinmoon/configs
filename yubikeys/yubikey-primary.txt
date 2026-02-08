@@ -1,4 +1,3 @@
-#       Serial: 35279841, Slot: 2
 #         Name: no-pin
 #      Created: Mon, 19 Jan 2026 05:27:36 +0000
 #   PIN policy: Never  (A PIN is NOT required to decrypt)

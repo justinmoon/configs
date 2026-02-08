@@ -1,4 +1,3 @@
-#       Serial: 35279824, Slot: 1
 #         Name: backup
 #      Created: Tue, 09 Dec 2025 22:15:22 +0000
 #   PIN policy: Once   (A PIN is required once per session, if set)
