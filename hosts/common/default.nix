@@ -4,6 +4,7 @@
 {
   imports = [
     ./github-ssh.nix
+    ./tailscale.nix
   ];
   # Locale settings
   i18n.defaultLocale = "en_US.UTF-8";

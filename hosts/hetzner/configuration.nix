@@ -84,6 +84,8 @@ in
     ../common/github-ssh.nix
     # Nix binary cache
     ./nix-cache.nix
+    # Tailscale mesh VPN (shared auth key)
+    ../common/tailscale.nix
     inputs.moq.nixosModules.moq-relay
     ./moq.nix
     # Immich photo server
@@ -152,11 +154,8 @@ in
     };
   };
 
-  # Enable Tailscale for secure mesh networking
-  services.tailscale = {
-    enable = true;
-    useRoutingFeatures = "client";
-  };
+  # Hetzner-specific Tailscale settings (base config from common/tailscale.nix)
+  services.tailscale.useRoutingFeatures = "client";
 
   # Enable polkit for systemd service management
   security.polkit.enable = true;

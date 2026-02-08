@@ -29,6 +29,7 @@ in {
   "nix-cache-key.age".publicKeys = allKeys;
   "hetzner-ssh-key.age".publicKeys = allKeys;
   "local-vm-key.age".publicKeys = allKeys;
+  "tailscale-auth-key.age".publicKeys = allKeys;
 
   # Local-only secrets (macOS, no server key needed)
   "r2.age".publicKeys = personalKeys;

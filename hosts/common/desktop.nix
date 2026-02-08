@@ -2,6 +2,8 @@
 { config, lib, pkgs, ... }:
 
 {
+  # Tailscale: enabled via common/default.nix -> common/tailscale.nix
+
   # Fonts
   fonts = {
     fontDir.enable = true;
@@ -90,6 +92,5 @@
     polkitPolicyOwners = [ "justin" ];
   };
 
-  # Tailscale
-  services.tailscale.enable = true;
+  # Tailscale: enabled via common/tailscale.nix
 }
