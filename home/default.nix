@@ -187,6 +187,7 @@ home.sessionVariables = {
     NIX_CONFIG = "warn-dirty = false";
     CLAUDE_CODE_ENABLE_TASKS = "true";
     CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+    NPM_CONFIG_PREFIX = npmGlobalDir;
   };
 
   # Ensure Nix packages take precedence over cargo-installed ones
@@ -200,11 +201,6 @@ home.sessionVariables = {
 
   home.file =
     {
-      # npm global prefix - ensures npm -g installs to ~/.npm-global
-      ".npmrc".text = ''
-        prefix=${npmGlobalDir}
-      '';
-
       ".config/ghostty/config".source = mkConfigLink "ghostty/config";
       ".config/ghostty/host-overrides".text =
         # Host-specific Ghostty settings
