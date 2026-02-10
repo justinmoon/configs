@@ -47,34 +47,127 @@ alias gl="git log"
 
 # Create a new worktree and branch from within current git directory.
 function ga
-    set -l branch $argv[1]
+    # Flags (agent-friendly / scriptable):
+    #   ga <branch> [--copy-env|--no-copy-env] [--tmux-window|--no-tmux-window] [--direnv-allow|--no-direnv-allow] [--cd|--no-cd]
+    #   ga --branch <branch> ...
+    argparse -n ga \
+        'b/branch=' \
+        'copy-env' 'no-copy-env' \
+        'tmux-window' 'no-tmux-window' \
+        'direnv-allow' 'no-direnv-allow' \
+        'cd' 'no-cd' \
+        -- $argv
+    or return 2
+
+    set -l branch "$_flag_branch"
+    if test -z "$branch"
+        set branch $argv[1]
+    end
     if test -z "$branch"
         set branch (gum input --placeholder "Branch name")
         if test -z "$branch"
             return 1
         end
     end
-    set -l path "./worktrees/$branch"
-    set -l abs_path (realpath -m "$path")
 
-    mkdir -p ./worktrees
-    git worktree add -b "$branch" "$path"
+    # Anchor worktrees under the primary worktree root, even if `ga` is invoked
+    # from inside an existing linked worktree.
+    set -l common_dir (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+    or begin
+        echo "ga: not in a git repo" >&2
+        return 1
+    end
+    set -l repo_root (dirname "$common_dir")
+    set -l path "$repo_root/worktrees/$branch"
+
+    mkdir -p "$repo_root/worktrees"
+    git -C "$repo_root" worktree add -b "$branch" "$path"
     or return 1
+    set -l abs_path (realpath "$path")
+
+    # Optional: copy gitignored/untracked .env* files (never read them; just copy).
+    # This keeps the new worktree immediately runnable for local/dev scripts that
+    # expect `.env` to exist in the worktree root.
+    set -l env_candidates
+    for f in (command find "$repo_root" -maxdepth 1 -name '.env*' -type f -print 2>/dev/null)
+        if test -f "$f"
+            set -l base (basename "$f")
+            if test "$base" = ".envrc"
+                continue
+            end
+            # Skip tracked files (e.g. .env.example) - those already exist in the worktree.
+            if git -C "$repo_root" ls-files --error-unmatch "$base" >/dev/null 2>&1
+                continue
+            end
+            set env_candidates $env_candidates "$f"
+        end
+    end
+
+    if test (count $env_candidates) -gt 0
+        set -l display (string join ", " (for f in $env_candidates; basename "$f"; end))
+        set -l do_copy ""
+        if set -q _flag_copy_env
+            set do_copy "1"
+        else if set -q _flag_no_copy_env
+            set do_copy "0"
+        else
+            if gum confirm "Copy untracked .env* files into new worktree? ($display)"
+                set do_copy "1"
+            else
+                set do_copy "0"
+            end
+        end
+
+        if test "$do_copy" = "1"
+            for src in $env_candidates
+                # fish string concatenation: adjacent tokens join.
+                set -l dest "$abs_path/"(basename -- "$src")
+                if test -e "$dest"
+                    echo "ga: skipping existing file: $dest" >&2
+                else
+                    command cp "$src" "$dest"
+                end
+            end
+        end
+    end
 
     # Check if we should open in a new tmux window
     if test -n "$TMUX"
-        if gum confirm "Open in new tmux window?"
+        set -l open_new ""
+        if set -q _flag_tmux_window
+            set open_new "1"
+        else if set -q _flag_no_tmux_window
+            set open_new "0"
+        else
+            if gum confirm "Open in new tmux window?"
+                set open_new "1"
+            else
+                set open_new "0"
+            end
+        end
+
+        if test "$open_new" = "1"
             tmux new-window -n "$branch" -c "$abs_path"
             sleep 0.3
-            tmux send-keys -t "$branch" "direnv allow" Enter
+            if not set -q _flag_no_direnv_allow
+                tmux send-keys -t "$branch" "direnv allow" Enter
+            end
         else
-            cd "$path"
-            direnv allow
+            if not set -q _flag_no_cd
+                cd "$abs_path"
+            end
+            if not set -q _flag_no_direnv_allow
+                direnv allow
+            end
             tmux rename-window "$branch"
         end
     else
-        cd "$path"
-        direnv allow
+        if not set -q _flag_no_cd
+            cd "$abs_path"
+        end
+        if not set -q _flag_no_direnv_allow
+            direnv allow
+        end
     end
 end
 
