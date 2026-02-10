@@ -26,14 +26,14 @@ The script must collect and run these sections:
 | Section | Command | Purpose |
 |---------|---------|---------|
 | just commands | `just --list` | Available tasks |
-| docs | `npx -y @justinmoon/docs-list` | Docs index with summaries and "read when" hints |
+| docs | `npx -y @justinmoon/agent-tools list-docs` | Docs index with summaries and "read when" hints |
 | pika-cli help | `cargo run -q -p pika-cli -- --help` | CLI subcommands (adapt binary name per project) |
 | agent-device help | `npx --yes agent-device --help` | Device automation tool for QA |
 
 Adapt the sections to match what the project actually has:
 - Only include `pika-cli` (or equivalent) if the project has a CLI binary
 - Only include `agent-device` if the project uses mobile device testing
-- Only include `npx -y @justinmoon/docs-list` if a `docs/` directory exists
+- Only include `npx -y @justinmoon/agent-tools list-docs` if a `docs/` directory exists
 - Always include `just --list` if a justfile exists
 
 Use the monorepo `agent-brief` as a template (at `~/code/monorepo/scripts/agent-brief`), but simplify — no app/project argument needed for single-app repos. Keep the parallel execution pattern.
@@ -63,7 +63,7 @@ descs+=("Available tasks.")
 # Only if docs/ exists
 if [[ -d "${repo_root}/docs" ]]; then
   titles+=("Docs")
-  cmds+=("npx -y @justinmoon/docs-list")
+  cmds+=("npx -y @justinmoon/agent-tools list-docs")
   descs+=("Project documentation index.")
 fi
 
@@ -92,7 +92,7 @@ Run `./scripts/agent-brief` first thing to get a live context snapshot.
 
 ### 4. Docs scaffolding
 
-Create `docs/` directory if it doesn't exist. Add one starter doc to verify `docs-list` works:
+Create `docs/` directory if it doesn't exist. Add one starter doc to verify `agent-tools list-docs` works:
 
 **`docs/architecture.md`:**
 ```markdown
@@ -128,13 +128,25 @@ Create symlink for Claude Code compatibility (skip if already exists):
 ln -sf AGENTS.md CLAUDE.md
 ```
 
+### 7. CI hygiene checks
+
+If the project has a `pre-merge` justfile recipe, add these checks to it:
+
+```just
+npx -y @justinmoon/agent-tools check-docs
+npx -y @justinmoon/agent-tools check-justfile
+```
+
+This ensures all docs have frontmatter and all justfile recipes have summary comments.
+
 ## Verification
 
 After all changes, run:
 
 ```bash
 ./scripts/agent-brief
-npx -y @justinmoon/docs-list
+npx -y @justinmoon/agent-tools check-docs
+npx -y @justinmoon/agent-tools check-justfile
 ```
 
-Confirm both produce clean output. Fix any errors before finishing.
+Confirm all produce clean output. Fix any errors before finishing.

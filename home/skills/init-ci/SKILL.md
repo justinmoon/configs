@@ -32,11 +32,13 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 nix-check:
     @test -n "$IN_NIX_SHELL" || (echo "Run 'nix develop' first" && exit 1)
 
-# Pre-merge checks (lint, test, build)
+# Pre-merge checks (lint, test, build, hygiene)
 pre-merge: nix-check
     # Add your checks here
     just lint
     just test
+    npx -y @justinmoon/agent-tools check-docs
+    npx -y @justinmoon/agent-tools check-justfile
     @echo "All checks passed!"
 
 # Post-merge deploy (optional)

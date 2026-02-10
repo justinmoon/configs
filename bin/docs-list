@@ -1,2 +1,2 @@
 #!/bin/sh
-exec npx -y @justinmoon/docs-list "$@"
+exec npx -y @justinmoon/agent-tools list-docs "$@"
