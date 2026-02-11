@@ -62,7 +62,50 @@ secret-view name:
     fi
 
     echo "Decrypting {{name}}... (tap YubiKey)"
+    # Raw view. Note: most secrets are stored as newline-terminated files; use
+    # `just secret-copy <name>` if you need newline-free clipboard output.
     age -d -i "{{IDENTITY}}" "$SECRET_FILE"
+
+# Copy a secret to the clipboard (requires YubiKey tap)
+secret-copy name:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    SECRET_FILE="secrets/{{name}}.age"
+
+    if [[ ! -f "$SECRET_FILE" ]]; then
+        echo "Secret not found: $SECRET_FILE"
+        just secret-list
+        exit 1
+    fi
+
+    echo "Decrypting {{name}}... (tap YubiKey)"
+    # Strip exactly one trailing LF (and any trailing CR before it) so tokens paste cleanly.
+    SECRET="$(age -d -i "{{IDENTITY}}" "$SECRET_FILE" | python3 -c 'import sys; s=sys.stdin.read(); s=s[:-1] if s.endswith(\"\\n\") else s; s=s[:-1] if s.endswith(\"\\r\") else s; sys.stdout.write(s)')"
+
+    if command -v pbcopy >/dev/null 2>&1; then
+        printf '%s' "$SECRET" | pbcopy
+        echo "Copied to clipboard (pbcopy)"
+    elif command -v wl-copy >/dev/null 2>&1; then
+        printf '%s' "$SECRET" | wl-copy
+        echo "Copied to clipboard (wl-copy)"
+    elif command -v xclip >/dev/null 2>&1; then
+        printf '%s' "$SECRET" | xclip -selection clipboard
+        echo "Copied to clipboard (xclip)"
+    else
+        echo "No clipboard tool found (need one of: pbcopy, wl-copy, xclip). Secret value:"
+        printf '%s' "$SECRET"
+    fi
+
+# SSH tunnel to access OpenClaw gateway + slipboxd locally without exposing ports publicly.
+# Defaults match the current Hetzner setup; override args if you change ports later.
+openclaw-tunnel host="100.73.239.5" user="justin" ssh_key="~/.ssh/id_ed25519_hetzner" gw_local="18789" gw_remote="18789" slip_local="7766" slip_remote="7766":
+    ssh -i {{ssh_key}} -N \
+        -L {{gw_local}}:127.0.0.1:{{gw_remote}} \
+        -L {{slip_local}}:127.0.0.1:{{slip_remote}} \
+        -o ExitOnForwardFailure=yes \
+        -o ServerAliveInterval=30 \
+        -o ServerAliveCountMax=3 \
+        {{user}}@{{host}}
 
 # Scan for leaked secrets. Uses nix so you don't need to install anything globally.
 secrets-scan:

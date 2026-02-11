@@ -30,6 +30,8 @@ in {
   "hetzner-ssh-key.age".publicKeys = allKeys;
   "local-vm-key.age".publicKeys = allKeys;
   "tailscale-auth-key.age".publicKeys = allKeys;
+  "anthropic-api-key.age".publicKeys = allKeys;
+  "openclaw-gateway-token.age".publicKeys = allKeys;
 
   # Local-only secrets (macOS, no server key needed)
   "r2.age".publicKeys = personalKeys;

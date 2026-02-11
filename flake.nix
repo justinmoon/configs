@@ -24,6 +24,20 @@
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # OpenClaw gateway + Marmot (personal knowledge assistant)
+    nix-openclaw = {
+      url = "github:justinmoon/nix-openclaw/marmot-ts-extensions";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
+    openclaw-src = {
+      url = "github:justinmoon/openclaw/4dc532e2fd1a1228219bf3d538d43a36f9259a41";
+      flake = false;
+    };
+    openclaw-marmot-src = {
+      url = "github:justinmoon/openclaw-marmot";
+      flake = false;
+    };
     # Cuttlefish packages and modules
     cuttlefish.url = "github:justinmoon/fundroid?dir=cuttlefish&ref=cf-pid1-logging-codex";
     cuttlefish.inputs.nixpkgs.follows = "nixpkgs";
@@ -360,6 +374,9 @@
         specialArgs = {
           inherit inputs;
           inherit cuttlefish;
+          nix-openclaw = inputs."nix-openclaw";
+          openclawSrc = inputs."openclaw-src";
+          openclawMarmotSrc = inputs."openclaw-marmot-src";
         };
       };
 

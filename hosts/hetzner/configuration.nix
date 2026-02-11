@@ -90,6 +90,8 @@ in
     ./moq.nix
     # Immich photo server
     ./immich.nix
+    # OpenClaw personal knowledge assistant (Marmot)
+    ./openclaw.nix
   ];
 
   nixpkgs.overlays = [
