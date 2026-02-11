@@ -147,11 +147,11 @@ in
           };
           list = [
             {
-              id = "marmot";
+              id = "slipbot";
               default = true;
               workspace = "/home/openclaw/.openclaw/workspace";
               identity = {
-                name = "Marmot Bot";
+                name = "Slipbot";
                 theme = "deterministic";
                 emoji = "";
               };
@@ -211,7 +211,7 @@ in
       text = ''
         # Agents
 
-        This workspace is shared by the OpenClaw agent (Marmot Bot) and Pi.
+        This workspace is shared by the OpenClaw agent (Slipbot) and Pi.
         Both agents can read and write to the slipbox vault at /home/openclaw/slipbox/.
       '';
     };
@@ -244,7 +244,7 @@ in
       text = ''
         # Identity
 
-        - Name: Marmot Bot
+        - Name: Slipbot
         - Role: Personal knowledge assistant
         - Owner: Justin
       '';
