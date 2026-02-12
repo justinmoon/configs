@@ -80,8 +80,12 @@ function ga
     set -l repo_root (dirname "$common_dir")
     set -l path "$repo_root/worktrees/$branch"
 
+    # Base the new branch on whatever we currently have checked out (e.g. if
+    # we're in a linked worktree for feature-a, fork from feature-a, not main).
+    set -l start_point (git rev-parse --abbrev-ref HEAD 2>/dev/null; or git rev-parse HEAD)
+
     mkdir -p "$repo_root/worktrees"
-    git -C "$repo_root" worktree add -b "$branch" "$path"
+    git -C "$repo_root" worktree add -b "$branch" "$path" "$start_point"
     or return 1
     set -l abs_path (realpath "$path")
 
