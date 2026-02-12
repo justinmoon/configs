@@ -29,7 +29,7 @@ if ! mkdir "$DIR" 2>/dev/null; then
     exit 3
 fi
 
-mkdir -p "$DIR"/{sources,issues,positions}
+mkdir -p "$DIR"/{sources,issues,issues-draft,positions,analysis}
 
 # meta.md — negotiation configuration
 cat > "$DIR/meta.md" << EOF
@@ -42,6 +42,9 @@ cat > "$DIR/meta.md" << EOF
 - **turn_timeout_seconds:** 600
 - **created:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
+
+# phase.md — tracks negotiation phase
+echo "analysis" > "$DIR/phase.md"
 
 # agents.md — empty, agents register here
 cat > "$DIR/agents.md" << 'EOF'
