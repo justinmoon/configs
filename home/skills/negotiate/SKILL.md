@@ -1,49 +1,68 @@
 ---
 name: negotiate
-description: Multi-agent negotiation via filesystem. Agents take turns resolving issues through structured positions until consensus or escalation. Use when multiple AI agents need to reconcile differing specs, designs, or approaches into a single agreed document.
+description: Multi-agent negotiation via filesystem. Say "negotiate about X at <path>" in two agents simultaneously — they auto-coordinate who initializes and who joins. Agents take turns resolving issues through structured positions until consensus.
 ---
 
 # Agent Negotiate
 
-Structured multi-agent negotiation protocol. Two or more AI agents resolve disagreements through turn-based written positions on specific issues, converging to a single agreed document.
+Structured multi-agent negotiation protocol. Two or more AI agents resolve disagreements through turn-based written positions, converging to a single agreed document.
 
-## Quick Start
+## Scripts
 
-You'll be told either to **initialize** a negotiation or to **join** an existing one. You'll be given:
-- A **negotiation directory** path
-- Your **agent name** (lowercase, hyphens only, e.g., `agent-alpha`)
-- The path to these **skill scripts**
+All scripts are in the `scripts/` subdirectory next to this SKILL.md file. Determine the absolute path based on where you read this file. We refer to it as `<scripts>` below.
 
-## If Initializing
+## How to Use
 
-1. Run the init script:
-   ```bash
-   <scripts>/init.sh <negotiation-dir> <num-agents> [registration-window-secs]
-   ```
+You'll receive an instruction like: **"Negotiate about \<topic\> at \<path\>"**
 
-2. Write `<negotiation-dir>/topic.md` describing what's being negotiated.
+The other agent receives the same instruction. You don't know who goes first — the skill handles it.
 
-3. Add source documents to `<negotiation-dir>/sources/`.
+### Step 1: Try to Initialize
 
-4. Create initial issues in `<negotiation-dir>/issues/`. **Use the `new-issue.sh` script** to get auto-numbered filenames:
+```bash
+<scripts>/init.sh <negotiation-dir> 2 120
+```
+
+- **Exit 0** → You're the **initializer**. Go to Step 2a.
+- **Exit 3** → Another agent already initialized. Go to Step 2b.
+
+Use 2 agents and 120s registration window unless the user says otherwise.
+
+### Step 2a: You're the Initializer
+
+1. Write `<negotiation-dir>/topic.md` describing what's being negotiated.
+2. Add your plan / source material to `<negotiation-dir>/sources/` (e.g. `sources/agent-alpha-plan.md`).
+3. Create initial issues for points you think need discussion:
    ```bash
    FILENAME=$(<scripts>/new-issue.sh <negotiation-dir> <short-topic>)
    ```
-   Then edit `<negotiation-dir>/issues/$FILENAME` with the issue content. See [protocol reference](references/protocol.md) for the issue file format.
+   Then edit the created file. See [protocol reference](references/protocol.md) for the issue format.
+4. Go to Step 3.
 
-5. Then proceed to the **Participation Loop** below.
+### Step 2b: You're Joining
 
-## Participation Loop
+Another agent is initializing. **Sleep 10 seconds** to let them finish writing topic/sources/issues, then go to Step 3.
+
+On your first turn you can add your own source material to `sources/` and file additional issues.
+
+### Step 3: Pick Your Agent Name
+
+Read `<negotiation-dir>/agents.md`. Pick the first unused name from this sequence:
+`agent-alpha`, `agent-beta`, `agent-gamma`, `agent-delta`, `agent-epsilon`
+
+If `register.sh` fails because the name is already taken, try the next name.
+
+### Step 4: Participation Loop
 
 Follow this loop **exactly**. Do not deviate.
 
-### Step 1: Register
+#### 4a: Register
 
 ```bash
 <scripts>/register.sh <negotiation-dir> <your-agent-name>
 ```
 
-### Step 2: Wait for All Agents
+#### 4b: Wait for All Agents
 
 ```bash
 <scripts>/wait-for-start.sh <negotiation-dir> <your-agent-name>
@@ -51,7 +70,7 @@ Follow this loop **exactly**. Do not deviate.
 
 This blocks until all expected agents register or the registration window closes.
 
-### Step 3: Poll Loop
+#### 4c: Poll Loop
 
 Repeat until done:
 
@@ -59,13 +78,13 @@ Repeat until done:
 <scripts>/poll.sh <negotiation-dir> <your-agent-name>
 ```
 
-- Exit code **0** → your turn. Go to Step 4.
+- Exit code **0** → your turn. Go to 4d.
 - Exit code **1** → not your turn. **Sleep 5 seconds**, then poll again.
-- Exit code **2** → negotiation is done. Go to Step 6.
+- Exit code **2** → negotiation is done. Go to 4f.
 
 **CRITICAL: NEVER stop polling to ask the user for confirmation or instructions. Your poll loop must run autonomously until `poll.sh` returns exit code 2 (done). Do not wait for human input between turns. Do not say "let me know when the other agent is ready." Just keep polling.**
 
-### Step 4: Take Your Turn
+#### 4d: Take Your Turn
 
 When it's your turn:
 
@@ -75,7 +94,7 @@ When it's your turn:
 
 3. **For each OPEN issue** (where `positions/NN-topic.md` has `## Status: OPEN` or doesn't exist yet):
    - If no position file exists, create `positions/NN-topic.md`.
-   - **Append** your position. Format:
+   - **Append** your position:
      ```markdown
      ## <your-name>'s position (round N)
      [Your reasoning, proposal, or acceptance]
@@ -83,11 +102,10 @@ When it's your turn:
    - If you **agree** with the latest proposal from another agent, change `## Status: OPEN` to `## Status: AGREED` and write the final decision text below it. **You may only mark AGREED if at least one other agent has already written a position on that issue.** You cannot self-agree on issues you filed alone.
    - If this is round N ≥ `max_rounds_per_agent` (from `meta.md`) without agreement, change Status to `## Status: ESCALATE` and summarize the disagreement.
 
-4. **Raise new issues** if you find disagreements not yet captured. **Always use `new-issue.sh`** to create the file — this prevents duplicate numbering:
+4. **Raise new issues** if you find disagreements not yet captured:
    ```bash
    FILENAME=$(<scripts>/new-issue.sh <negotiation-dir> <short-topic>)
    ```
-   Then edit the created file with the issue content.
 
 5. **Check overall status**:
    ```bash
@@ -103,19 +121,22 @@ When it's your turn:
    ```bash
    <scripts>/hand-off.sh <negotiation-dir> <your-agent-name>
    ```
-   Go back to Step 3.
+   Return to 4c (poll again). **Keep polling. Do not stop.**
 
-### Step 5: Poll Again
+#### 4e: Done
 
-After handing off, return to Step 3. **Keep polling. Do not stop.**
+When `poll.sh` returns exit code 2, the negotiation is complete. Read `final.md` and report the outcome to the user.
 
-### Step 6: Done
-
-When `poll.sh` returns exit code 2 (done), the negotiation is complete. Read `final.md` and report the outcome to the user.
+Copy the final document into the project:
+```bash
+mkdir -p ./todos
+cp <negotiation-dir>/final.md ./todos/<descriptive-name>.md
+```
+Let the user know where you put it so they can point an agent at it for implementation.
 
 ## Turn Timeout
 
-If an agent fails to act within `turn_timeout_seconds` (default: 600s / 10 minutes), `poll.sh` automatically skips the stalled agent and advances the turn. This prevents the negotiation from blocking on an unresponsive agent.
+If an agent fails to act within `turn_timeout_seconds` (default: 600s / 10 minutes), `poll.sh` automatically skips the stalled agent and advances the turn.
 
 ## Negotiation Rules
 
@@ -128,33 +149,6 @@ If an agent fails to act within `turn_timeout_seconds` (default: 600s / 10 minut
 - **Focus on the output**: The goal is `final.md` — a single document everyone can work from.
 - **Never edit another agent's positions**: Append only.
 - **Use `new-issue.sh` for new issues**: Never manually number issue files.
-
-## How to Prompt Other Agents
-
-When telling another agent (or asking a user to tell another agent) to join, use this template:
-
-```
-Join the negotiation at <NEGOTIATION-DIR>.
-
-Your agent name is "<AGENT-NAME>".
-
-Use the negotiate skill. The skill scripts are at:
-  <SCRIPTS-DIR>
-
-Follow the skill instructions exactly:
-1. Read <SCRIPTS-DIR>/../SKILL.md for the full protocol
-2. Run: <SCRIPTS-DIR>/register.sh <NEGOTIATION-DIR> <AGENT-NAME>
-3. Run: <SCRIPTS-DIR>/wait-for-start.sh <NEGOTIATION-DIR> <AGENT-NAME>
-4. Poll in a loop: <SCRIPTS-DIR>/poll.sh <NEGOTIATION-DIR> <AGENT-NAME>
-   - Exit 0 = your turn (read everything, write positions, hand off)
-   - Exit 1 = not your turn (sleep 5, poll again)
-   - Exit 2 = done
-5. NEVER stop polling to ask for human input. Run autonomously.
-6. When it's your turn, write positions on ALL open issues.
-7. Use <SCRIPTS-DIR>/new-issue.sh <NEGOTIATION-DIR> <topic> to create new issues.
-8. Use <SCRIPTS-DIR>/hand-off.sh <NEGOTIATION-DIR> <AGENT-NAME> when done with your turn.
-9. When all issues are AGREED, write final.md and run <SCRIPTS-DIR>/finish.sh <NEGOTIATION-DIR>.
-```
 
 ## File Format Reference
 

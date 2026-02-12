@@ -6,13 +6,12 @@ usage() {
     echo ""
     echo "  negotiation-dir:         Path to create the negotiation directory"
     echo "  num-agents:              Number of agents expected to participate"
-    echo "  registration-window-secs: Seconds to wait for all agents (default: 30)"
+    echo "  registration-window-secs: Seconds to wait for all agents (default: 120)"
     echo ""
-    echo "After init, populate:"
-    echo "  <dir>/sources/     - Source documents agents should read"
-    echo "  <dir>/issues/      - Initial issues (NN-topic.md)"
-    echo ""
-    echo "Or let the first agent create issues from the sources."
+    echo "Exit codes:"
+    echo "  0 - Initialized successfully (you are the initializer)"
+    echo "  3 - Directory already exists (another agent initialized; you should join)"
+    echo "  1 - Other error"
     exit 1
 }
 
@@ -20,11 +19,14 @@ usage() {
 
 DIR="$1"
 NUM_AGENTS="$2"
-REG_WINDOW="${3:-30}"
+REG_WINDOW="${3:-120}"
 
-if [[ -d "$DIR" ]]; then
-    echo "Error: $DIR already exists"
-    exit 1
+# Atomic directory creation — only one agent can succeed.
+# mkdir (without -p) fails if the directory already exists.
+if ! mkdir "$DIR" 2>/dev/null; then
+    echo "Already initialized: $DIR (another agent got here first)"
+    echo "You should join as a participant instead."
+    exit 3
 fi
 
 mkdir -p "$DIR"/{sources,issues,positions}
@@ -52,7 +54,7 @@ EOF
 # turn.md — starts as "registration"
 echo "registration" > "$DIR/turn.md"
 
-# topic.md — placeholder for the user/orchestrator to fill in
+# topic.md — placeholder for the initializer to fill in
 cat > "$DIR/topic.md" << 'EOF'
 # Negotiation Topic
 
@@ -63,9 +65,3 @@ EOF
 echo "Negotiation initialized at: $DIR"
 echo "Expected agents: $NUM_AGENTS"
 echo "Registration window: ${REG_WINDOW}s"
-echo ""
-echo "Next steps:"
-echo "  1. Edit $DIR/topic.md with the negotiation topic"
-echo "  2. Add source documents to $DIR/sources/"
-echo "  3. Optionally add initial issues to $DIR/issues/"
-echo "  4. Tell each agent to join: 'Join the negotiation at $DIR'"
