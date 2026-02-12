@@ -84,6 +84,15 @@ function ga
     # we're in a linked worktree for feature-a, fork from feature-a, not main).
     set -l start_point (git rev-parse --abbrev-ref HEAD 2>/dev/null; or git rev-parse HEAD)
 
+    # If on main/master with no dirty tracked files, pull to get latest changes
+    if test "$start_point" = main -o "$start_point" = master
+        if test -z (git -C "$repo_root" diff --name-only HEAD 2>/dev/null)
+            echo "ga: pulling latest $start_point..."
+            git -C "$repo_root" pull --ff-only
+            or echo "ga: pull failed, continuing with local $start_point" >&2
+        end
+    end
+
     mkdir -p "$repo_root/worktrees"
     git -C "$repo_root" worktree add -b "$branch" "$path" "$start_point"
     or return 1
