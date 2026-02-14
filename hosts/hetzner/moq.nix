@@ -8,9 +8,9 @@ let
   certDir = "${stateDir}/certs";
   listenAddr = "[::]:443";
   caddyDataDir = config.services.caddy.dataDir or "/var/lib/caddy";
-  caddyCertDir = "${caddyDataDir}/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${domain}";
-  sourceCert = "${caddyCertDir}/${domain}.crt";
-  sourceKey = "${caddyCertDir}/${domain}.key";
+  caddyCertDir = "${caddyDataDir}/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/wildcard_.justinmoon.com";
+  sourceCert = "${caddyCertDir}/wildcard_.justinmoon.com.crt";
+  sourceKey = "${caddyCertDir}/wildcard_.justinmoon.com.key";
   localCert = "${certDir}/fullchain.pem";
   localKey = "${certDir}/privkey.pem";
   installBin = "${pkgs.coreutils}/bin/install";
