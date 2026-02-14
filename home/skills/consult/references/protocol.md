@@ -27,21 +27,22 @@ Every report **must** start with a structured header:
 ```markdown
 # <Title>
 
-## Working Directory
-`~/code/project/worktrees/feature-branch`
+## Working Directories
+- `~/code/pika/worktrees/audio-2` -- media transport layer
+- `~/code/openclaw-marmot` -- bot sidecar daemon
 
 ## Files Modified
-- `path/to/file.rs` -- short description of change
-- `path/to/new_file.rs` -- new, description
+- `pika: path/to/file.rs` -- short description of change
+- `openclaw-marmot: path/to/other.rs` -- new, description
 
 ## Files Investigated (not modified)
-- `path/to/other.rs` -- what you looked at and why
+- `pika: path/to/read-only.rs` -- what you looked at and why
 
 ## Summary
 One-paragraph summary of findings.
 ```
 
-The working directory and file lists let other agents (and the user) know exactly where to look without reading the entire report. After the header, include whatever detail is useful: what was tried, what worked, what didn't, hypotheses, error messages, stack traces, etc.
+List every repo/worktree you touched. Prefix file paths with the repo name when working across multiple repos. After the header, include whatever detail is useful: what was tried, what worked, what didn't, hypotheses, error messages, stack traces, etc.
 
 ## Lifecycle
 

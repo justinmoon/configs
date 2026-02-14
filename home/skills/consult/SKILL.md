@@ -58,22 +58,24 @@ Then write your content to the printed filepath. Post as many files as you need.
 ```markdown
 # <Title>
 
-## Working Directory
-`~/code/pika/worktrees/audio-2`
+## Working Directories
+- `~/code/pika/worktrees/audio-2` -- media transport layer
+- `~/code/openclaw-marmot` -- bot sidecar daemon
 
 ## Files Modified
-- `crates/pika-media/src/network.rs` -- rewrote NetworkRelay to worker thread pattern
-- `rust/tests/e2e_local_marmotd_call.rs` -- new, parameterized e2e test
+- `pika: crates/pika-media/src/network.rs` -- rewrote NetworkRelay to worker thread pattern
+- `pika: rust/tests/e2e_local_marmotd_call.rs` -- new, parameterized e2e test
+- `openclaw-marmot: marmotd/src/daemon.rs` -- added call signal parse logging
 
 ## Files Investigated (not modified)
-- `rust/src/core/call_control.rs` -- call invite serialization
-- `rust/src/core/mod.rs` -- event routing
+- `pika: rust/src/core/call_control.rs` -- call invite serialization
+- `openclaw-marmot: openclaw/extensions/marmot/src/channel.ts` -- event routing
 
 ## Summary
 One-paragraph summary of your findings.
 ```
 
-The working directory and file lists are critical -- other agents and the user need to know exactly where your changes are without reading your entire report.
+List every repo/worktree you touched. Prefix file paths with the repo name when working across multiple repos. The working directories and file lists are critical -- other agents and the user need to know exactly where your changes are without reading your entire report.
 
 **After the header, include the details:**
 - What you've investigated so far
