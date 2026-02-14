@@ -17,7 +17,7 @@ consult-dir/
 | Field | Default | Description |
 |-------|---------|-------------|
 | expected_agents | required | Number of agents to wait for |
-| timeout_seconds | 120 | Max time to wait for all agents to be ready |
+| timeout_seconds | 300 | Max time to wait for all agents to be ready |
 | poll_interval_seconds | 5 | How often agents should poll |
 
 ## Finding File Format

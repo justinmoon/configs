@@ -19,7 +19,7 @@ usage() {
 
 DIR="$1"
 NUM_AGENTS="$2"
-TIMEOUT="${3:-120}"
+TIMEOUT="${3:-300}"
 
 if ! mkdir "$DIR" 2>/dev/null; then
     echo "Already initialized: $DIR"

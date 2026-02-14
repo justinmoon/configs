@@ -17,7 +17,9 @@ You'll receive an instruction like: **"Consult about \<topic\> at \<path\> with 
 
 The other agents receive the same instruction. All agents are equal participants.
 
-### Step 1: Initialize or Join
+### Step 1: Initialize, Pick Name, and Register -- DO THIS IMMEDIATELY
+
+**Register FIRST, before doing anything else.** Other agents are waiting on you. Don't read files, don't think about your report, don't do any prep work. Just run these commands right away:
 
 ```bash
 <scripts>/init.sh <consult-dir> <N> [timeout-secs]
@@ -26,16 +28,12 @@ The other agents receive the same instruction. All agents are equal participants
 - **Exit 0** → You created the directory.
 - **Exit 3** → Another agent already created it. That's fine, proceed.
 
-Default timeout is 120 seconds.
-
-### Step 2: Pick Your Agent Name
+Default timeout is 300 seconds.
 
 Pick the first unused name from this sequence:
 `agent-alpha`, `agent-beta`, `agent-gamma`, `agent-delta`, `agent-epsilon`
 
-Check `<consult-dir>/agents.md` to see which are taken.
-
-### Step 3: Register
+Check `<consult-dir>/agents.md` to see which are taken. Then register:
 
 ```bash
 <scripts>/register.sh <consult-dir> <your-agent-name>
@@ -43,7 +41,9 @@ Check `<consult-dir>/agents.md` to see which are taken.
 
 If the name is taken, try the next one in the sequence.
 
-### Step 4: Post Your Report
+**Now** you can start writing your report.
+
+### Step 2: Post Your Report
 
 Write a report of your progress so far. Create finding files using:
 
@@ -86,7 +86,7 @@ List every repo/worktree you touched. Prefix file paths with the repo name when 
 
 **Be specific.** Include file paths, function names, error messages, line numbers, stack traces.
 
-### Step 5: Mark Ready
+### Step 3: Mark Ready
 
 When you've posted your report:
 
@@ -94,7 +94,7 @@ When you've posted your report:
 <scripts>/ready.sh <consult-dir> <your-agent-name>
 ```
 
-### Step 6: Wait for Others
+### Step 4: Wait for Others
 
 Poll until everyone has checked in:
 
@@ -108,7 +108,7 @@ Poll until everyone has checked in:
 
 **Keep polling. Do not stop to ask the user. Do not wait for human input.**
 
-### Step 7: Read Everyone's Reports
+### Step 5: Read Everyone's Reports
 
 ```bash
 <scripts>/read-all.sh <consult-dir> <your-agent-name>
@@ -116,7 +116,7 @@ Poll until everyone has checked in:
 
 This prints all reports from other agents (not your own). Read carefully.
 
-### Step 8: Return to Your Task
+### Step 6: Return to Your Task
 
 You now know what the other agents know. Incorporate their findings into your work. Avoid re-investigating things they've already covered. Focus on what's left.
 
