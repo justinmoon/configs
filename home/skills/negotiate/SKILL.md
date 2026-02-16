@@ -1,6 +1,6 @@
 ---
 name: negotiate
-description: Multi-agent negotiation via filesystem. Say "negotiate about X at <path>" in two agents simultaneously — they auto-coordinate who initializes and who joins. Agents independently analyze divergences, then take turns resolving issues through adversarial positions until consensus.
+description: Multi-agent negotiation via filesystem. Say "negotiate about X at <path> with N agents" in all agents simultaneously — they auto-coordinate who initializes and who joins. Agents independently analyze divergences, then take turns resolving issues through adversarial positions until consensus.
 ---
 
 # Agent Negotiate
@@ -18,20 +18,20 @@ All scripts are in the `scripts/` subdirectory next to this SKILL.md file. Deter
 
 ## How to Use
 
-You'll receive an instruction like: **"Negotiate about \<topic\> at \<path\>"**
+You'll receive an instruction like: **"Negotiate about \<topic\> at \<path\> with \<N\> agents"**
 
-The other agent receives the same instruction. You don't know who goes first — the skill handles it.
+The other agents receive the same instruction. You don't know who goes first — the skill handles it.
 
 ### Step 1: Try to Initialize
 
 ```bash
-<scripts>/init.sh <negotiation-dir> 2 120
+<scripts>/init.sh <negotiation-dir> <N> 120
 ```
 
 - **Exit 0** → You're the **initializer**. Go to Step 2a.
 - **Exit 3** → Another agent already initialized. Go to Step 2b.
 
-Use 2 agents and 120s registration window unless the user says otherwise.
+Use 120s registration window unless the user says otherwise.
 
 ### Step 2a: You're the Initializer
 
