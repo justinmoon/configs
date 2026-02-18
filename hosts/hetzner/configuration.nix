@@ -78,6 +78,8 @@ in
     ./blog.nix
     # Caddy reverse proxy
     ./caddy.nix
+    # Nostr relay (strfry)
+    ./strfry.nix
     # Monorepo runner SSH key + known_hosts
     ./monorepo-ssh.nix
     # GitHub SSH key (bypasses YubiKey for git operations)
@@ -178,6 +180,8 @@ in
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK9qcRB7tF1e8M9CX8zoPfNmQgWqvnee0SKASlM0aMlm mail@justinmoon.com"
       # Hetzner dedicated key (no YubiKey needed)
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA8Oc7Gtaqck72Y5G92STRSEe/Yl7983H89dMFzMcmI/ hetzner-ssh-key"
+      # streambot → Hetzner remote builder key
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE5Ed49Poa0vwlJxRzqrbJAlfsYk5/4a6m1EpAI8mq64 streambot-hetzner"
       # YubiKey primary
       "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIOvnevaL7FO+n13yukLu23WNfzRUPzZ2e3X/BBQLieapAAAABHNzaDo= justin@yubikey-primary"
       # YubiKey backup
