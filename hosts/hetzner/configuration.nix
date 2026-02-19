@@ -180,8 +180,10 @@ in
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK9qcRB7tF1e8M9CX8zoPfNmQgWqvnee0SKASlM0aMlm mail@justinmoon.com"
       # Hetzner dedicated key (no YubiKey needed)
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA8Oc7Gtaqck72Y5G92STRSEe/Yl7983H89dMFzMcmI/ hetzner-ssh-key"
-      # streambot → Hetzner remote builder key
+      # streambot → Hetzner remote builder key (root/nix-daemon)
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE5Ed49Poa0vwlJxRzqrbJAlfsYk5/4a6m1EpAI8mq64 streambot-hetzner"
+      # streambot openclaw user (for local nixos-rebuild)
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKrX6CH4kPJ2xTVElXBIt+OPifzpJmcs+B1R5e3Hk86O openclaw@streambot"
       # YubiKey primary
       "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIOvnevaL7FO+n13yukLu23WNfzRUPzZ2e3X/BBQLieapAAAABHNzaDo= justin@yubikey-primary"
       # YubiKey backup
