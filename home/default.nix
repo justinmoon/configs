@@ -104,7 +104,7 @@
       bk
       pv
       wdiff
-      dioxus-cli
+      # dioxus-cli # conflicts with deno (both install bin/dx)
       nostr-rs-relay
       nak
       pkg-config
@@ -547,6 +547,16 @@ home.sessionVariables = {
         hostname = "100.73.239.5";  # Tailscale IP (SSH is Tailscale-only)
         identityFile = ["~/.ssh/id_ed25519_hetzner"];
         identitiesOnly = true;
+      };
+      slipbot = {
+        hostname = "100.73.239.5";  # Tailscale IP (SSH is Tailscale-only)
+        user = "slipbot";
+        identityFile = ["~/.ssh/id_ed25519_hetzner"];
+        identitiesOnly = true;
+      };
+      streambot = {
+        hostname = "100.83.137.37";  # Tailscale IP (SSH is Tailscale-only)
+        user = "root";
       };
       # Production servers using YubiKey
       sled-prod = {
