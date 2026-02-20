@@ -189,11 +189,17 @@ function gd
     set -l cwd (pwd)
     set -l worktree (basename $cwd)
     set -l parent (dirname $cwd)
+    set -l tmux_window_id ""
 
     # Protect: only works if we're inside a "worktrees" directory
     if test (basename $parent) != worktrees
         echo "Not inside a worktrees/ directory" >&2
         return 1
+    end
+
+    # Capture the invoking window once so later tmux actions can't race if focus changes.
+    if test -n "$TMUX"
+        set tmux_window_id (tmux display-message -p -t "$TMUX_PANE" '#{window_id}' 2>/dev/null)
     end
 
     if not gum confirm "Remove worktree '$worktree' and branch?"
@@ -211,12 +217,28 @@ function gd
     set -l root (dirname $parent)
     cd "$root"
     git worktree remove "worktrees/$worktree" --force
+    or begin
+        echo "gd: failed to remove worktree '$worktree'; leaving tmux window unchanged" >&2
+        return 1
+    end
     git branch -D "$worktree"
+    or begin
+        echo "gd: failed to delete branch '$worktree'; leaving tmux window unchanged" >&2
+        return 1
+    end
 
     if test $kill_window -eq 1
-        tmux kill-window
+        if test -n "$tmux_window_id"
+            tmux kill-window -t "$tmux_window_id"
+        else
+            echo "gd: couldn't determine originating tmux window; skipping kill-window" >&2
+        end
     else if test -n "$TMUX"
-        tmux rename-window (basename $root)
+        if test -n "$tmux_window_id"
+            tmux rename-window -t "$tmux_window_id" (basename $root)
+        else
+            echo "gd: couldn't determine originating tmux window; skipping rename-window" >&2
+        end
     end
 end
 

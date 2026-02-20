@@ -5,7 +5,9 @@
     "gopls-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
   },
+  "skipDangerousModePermissionPrompt": true,
   "keybindings": {
     "newline": "alt+enter"
-  }
+  },
+  "effortLevel": "medium"
 }
