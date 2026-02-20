@@ -18,6 +18,7 @@ This runs remotely on the Hetzner host and does not require local sudo.
 | **Bitcoin Core** | `bitcoin.nix` | :8333 (P2P) | Pruned node (2GB), `bitcoin-cli` wrapper available |
 | **Immich** | `immich.nix` | `photos.justinmoon.com` | Self-hosted photo management |
 | **MoQ Relay** | `moq.nix` | `moq.justinmoon.com` (UDP :443) | Media over QUIC relay, uses Caddy certs |
+| **strfry (Nostr relay)** | `strfry.nix` | `relay.justinmoon.com` | Nostr relay (websocket via Caddy) |
 | **Nix Cache** | `nix-cache.nix` | Tailscale :5000 | `nix-serve` binary cache (Tailscale-only) |
 | **Tailscale** | `configuration.nix` | — | Mesh VPN |
 | **Cuttlefish** | `configuration.nix` | — | Android emulator (cfctl daemon + FHS environment) |

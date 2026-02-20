@@ -86,7 +86,7 @@ function ga
 
     # If on main/master with no dirty tracked files, pull to get latest changes
     if test "$start_point" = main -o "$start_point" = master
-        if test -z (git -C "$repo_root" diff --name-only HEAD 2>/dev/null)
+        if test -z "$(git -C "$repo_root" diff --name-only HEAD 2>/dev/null)"
             echo "ga: pulling latest $start_point..."
             git -C "$repo_root" pull --ff-only
             or echo "ga: pull failed, continuing with local $start_point" >&2

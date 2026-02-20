@@ -87,6 +87,15 @@
             redir https://moq.justinmoon.com{uri} permanent
           }
 
+          # Nostr relay (strfry)
+          @relay host relay.justinmoon.com
+          handle @relay {
+            reverse_proxy 127.0.0.1:7777 {
+              # Ensure strfry can trust relay.realIpHeader = "x-real-ip".
+              header_up X-Real-IP {remote_host}
+            }
+          }
+
           # Static subdomain for future use
           @setup host setup.justinmoon.com
           handle @setup {

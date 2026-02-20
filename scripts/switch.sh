@@ -106,11 +106,23 @@ esac
 
 # Step 1: Copy configs
 echo "==> Syncing configuration to $HOST..."
+# Exclude git metadata whether this repo is a normal checkout (.git/ dir)
+# or a git worktree (.git file pointing at a gitdir).
+if [ "$HOST" = "hetzner" ]; then
+    # /tmp/nixos-config is a throwaway deploy dir. It may contain a stale .git
+    # file from a previous worktree-based deploy (which breaks flake eval).
+    ssh "$SSH_TARGET" "sudo rm -rf $REMOTE_PATH/.git $REMOTE_PATH/.jj" 2>/dev/null || true
+fi
 rsync -av --delete \
     --exclude='.git/' \
+    --exclude='.git' \
     --exclude='.jj/' \
+    --exclude='.jj' \
+    --exclude='.direnv/' \
+    --exclude='.direnv' \
     --exclude='iso/' \
     --exclude='result/' \
+    --exclude='result' \
     --exclude='**/target/' \
     --exclude='**/node_modules/' \
     --exclude='**/.astro/' \
