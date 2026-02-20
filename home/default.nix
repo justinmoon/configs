@@ -545,6 +545,7 @@ home.sessionVariables = {
       };
       hetzner = {
         hostname = "100.73.239.5";  # Tailscale IP (SSH is Tailscale-only)
+        user = "openclaw";
         identityFile = ["~/.ssh/id_ed25519_hetzner"];
         identitiesOnly = true;
       };
