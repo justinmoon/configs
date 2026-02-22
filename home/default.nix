@@ -555,6 +555,12 @@ home.sessionVariables = {
         identityFile = ["~/.ssh/id_ed25519_hetzner"];
         identitiesOnly = true;
       };
+      pika-build = {
+        hostname = "65.108.234.158";
+        user = "justin";
+        identityFile = ["~/.ssh/id_ed25519"];
+        identitiesOnly = true;
+      };
       streambot = {
         hostname = "100.83.137.37";  # Tailscale IP (SSH is Tailscale-only)
         user = "root";
