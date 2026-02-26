@@ -1,6 +1,6 @@
 ---
 name: write-todo
-description: Turn a user request (often after a long planning session) into a concrete todo spec in `todos/` with two sections: Spec and Plan. Plan must use numbered steps with acceptance criteria and end with a user-run manual QA gate.
+description: "Turn a user request (often after a long planning session) into a concrete todo spec in `todos/` with two sections: Spec and Plan. Plan must use numbered steps with acceptance criteria and end with a user-run manual QA gate."
 ---
 
 # write-todo
@@ -16,6 +16,7 @@ Use this when the user says things like:
 
 The spec must:
 - Be written to `todos/<descriptive-kebab-name>.md`
+- Use short, clear filenames (for example, `call-audio-plan.md`) and avoid long or numbered names.
 - Have exactly two top-level sections: `## Spec` and `## Plan`
 - In `## Spec`, clearly state:
   - why this is being done
@@ -38,4 +39,3 @@ The spec must:
 - Ensure you know whether where backwards compatibility is and isn't required
 - Avoid fluff, avoid vague “investigate” steps unless scoped and testable.
 - Make `Spec` specific enough that a different engineer / agent could build the same thing.
-
