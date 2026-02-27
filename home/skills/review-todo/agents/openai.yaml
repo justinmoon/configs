@@ -1,0 +1,3 @@
+interface:
+  display_name: "Review Todo"
+  short_description: "Coordinate implementer + reviewers via filesystem checkpoints"
