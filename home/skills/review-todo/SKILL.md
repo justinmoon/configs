@@ -5,120 +5,80 @@ description: "Coordinate multi-agent code review for plan-driven implementation 
 
 # Review Todo
 
-Coordinate three agents around a `todos/*.md` implementation run:
-- one `implementer` agent (typically using `implement-todo`)
-- two reviewer agents (`reviewer-1`, `reviewer-2`) using this skill
+Coordinate agents around a `todos/*.md` implementation run:
+- one `implementer` agent (using `implement-todo`) — **always initializes the coordination directory**
+- one or two reviewer agents (`reviewer-1`, `reviewer-2`) using this skill
 
 Use this skill when you want review checkpoints without manual copy/paste between agents.
+
+## Arguments
+
+```
+/review-todo <coord-dir> <todo-file> [reviewer-role]
+```
+
+- `coord-dir`: shared coordination directory (e.g. `/tmp/oc-tests`). The **implementer creates this**; the reviewer waits for it.
+- `todo-file`: path to the `todos/*.md` spec file (for context).
+- `reviewer-role`: `reviewer-1` (default) or `reviewer-2`.
 
 ## Scripts
 
 All scripts are in `scripts/` next to this file. Resolve that absolute path first. We refer to it below as `<scripts>`.
 
-## Run Directory
+## Behavior
 
-The user provides the run directory path (same style as `consult`/`negotiate`).
+**This is a long-running agent.** On startup, wait for the coordination directory, register, and immediately enter the reviewer loop. Keep looping until the run is marked done or the idle timeout fires. **Do NOT stop to ask the user if you should start reviewing. Just do it.**
 
-Example:
-- run dir: `./.coord/review-feature-x`
-- todo spec: `./todos/feature-x.md`
+## Startup
 
-## Quick Start
+1. **Wait for the coordination directory** (the implementer creates it):
+   ```bash
+   while [ ! -f "<coord-dir>/meta.env" ]; do
+     echo "Waiting for implementer to initialize <coord-dir>..."
+     sleep 5
+   done
+   ```
 
-1. Launch tmux layout and initialize run metadata:
+2. **Register your role:**
+   ```bash
+   <scripts>/register-role.sh <coord-dir> <reviewer-role> <reviewer-role>
+   ```
 
-```bash
-<scripts>/launch-tmux.sh <run-dir> <todo-file> [strictness] [review-guidance]
-```
+3. **Read the todo spec** so you understand what the implementer is building and what acceptance criteria to review against.
 
-`strictness` values: `light`, `balanced`, `strict`, `paranoid`.
+4. **Immediately enter the reviewer loop below.** Do not stop or ask for confirmation.
 
-This script:
-- initializes the run directory
-- creates one tmux window with 3 panes
-- prints role-specific commands in each pane
-- does **not** auto-launch agents
+## Reviewer Loop
 
-2. Each agent claims one role:
+Run this loop **continuously until the run ends**:
 
-```bash
-<scripts>/register-role.sh <run-dir> implementer <agent-name>
-<scripts>/register-role.sh <run-dir> reviewer-1 <agent-name>
-<scripts>/register-role.sh <run-dir> reviewer-2 <agent-name>
-```
+1. **Poll for a pending request.** Do NOT use `watch-next-request.sh` (it blocks too long). Instead, poll manually:
+   ```bash
+   <scripts>/watch-next-request.sh <coord-dir> <reviewer-role> &
+   WATCHER_PID=$!
+   sleep 15
+   kill $WATCHER_PID 2>/dev/null
+   wait $WATCHER_PID 2>/dev/null
+   ```
+   Or, more simply, check the requests directory yourself:
+   - Read `<coord-dir>/state.md` — if it says `done`, you're finished.
+   - List files in `<coord-dir>/requests/` — find any `.md` file.
+   - For each request file, check if `<coord-dir>/decisions/<request-id>.md` already exists (skip if so).
+   - Check if `<coord-dir>/reviews/<request-id>/<reviewer-role>.md` already exists (skip if so — you already reviewed it).
+   - If you find an unreviewed request with no decision, proceed to step 2.
+   - If no pending requests, **sleep 10 seconds and check again**. Do not give up. Keep polling.
 
-## Implementer Workflow
+2. Read the request file. Review the implementation changes against the spec's acceptance criteria for that step. Read the actual changed files in the repo to assess quality.
 
-Use `implement-todo` for coding, and this skill for checkpoints.
+3. Post your verdict:
+   ```bash
+   REVIEW_FILE=$(<scripts>/post-review.sh <coord-dir> <reviewer-role> <request-id> <verdict>)
+   ```
+   `verdict` values: `APPROVE`, `CHANGES_REQUESTED`, `BLOCKED`, `GIVE_UP`
 
-1. Post a review request when a step checkpoint is ready:
+4. Write your review content into the review file with concrete findings, file paths, and expected changes.
 
-```bash
-<scripts>/post-checkpoint.sh <run-dir> <step-id> [incremental|full]
-```
-
-`step-id` should match the todo plan step conceptually, e.g. `step-2-contracts`.
-The script prints both `request-id` and `request-file`.
-
-2. Fill the request file. Include:
-- what step and acceptance criteria you believe are complete
-- files changed
-- tests run
-- known risks/gaps
-
-3. Wait for reviews and decision:
-
-```bash
-<scripts>/wait-for-reviews.sh <run-dir> <request-id>
-```
-
-Decision outcomes:
-- `PROCEED` or `PROCEED_TIMEOUT` -> move to next plan step
-- `REWORK` -> stay on same step, post a new round
-- `ESCALATE` -> stop and ask user
-- `GIVE_UP` -> stop due missing reviews and ask user
-
-4. If coding for a long time before next checkpoint, keep heartbeat alive:
-
-```bash
-<scripts>/heartbeat.sh <run-dir>
-```
-
-5. When the todo is complete, mark the run done so reviewers can exit cleanly:
-
-```bash
-<scripts>/finish.sh <run-dir>
-```
-
-## Reviewer Workflow
-
-Run this loop continuously:
-
-1. Wait for next unreviewed request:
-
-```bash
-<scripts>/watch-next-request.sh <run-dir> reviewer-1
-# or reviewer-2
-```
-
-Exit codes:
-- `0` -> request is ready to review
-- `2` -> run marked done
-- `3` -> no implementer progress for idle timeout window (default 1 hour), reviewer should give up
-
-2. Write review file:
-
-```bash
-REVIEW_FILE=$(<scripts>/post-review.sh <run-dir> reviewer-1 <request-id> <verdict>)
-```
-
-`verdict` values:
-- `APPROVE`
-- `CHANGES_REQUESTED`
-- `BLOCKED`
-- `GIVE_UP`
-
-3. Fill review content in that file.
+5. **Go back to step 1.** Keep looping until `state.md` says `done`.
 
 ## Review Policy
 

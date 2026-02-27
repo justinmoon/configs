@@ -15,6 +15,7 @@ Options:
   --guidance <text>                                 Default: empty
   --implementer-timeout-secs <seconds>              Default: 1200
   --reviewer-idle-timeout-secs <seconds>            Default: 3600
+  --reviewer-count <1|2>                             Default: 1
   --max-rounds-per-step <count>                     Default: 7
   --poll-interval-secs <seconds>                    Default: 5
 
@@ -30,6 +31,7 @@ DIR=""
 TODO_FILE=""
 STRICTNESS="balanced"
 GUIDANCE=""
+REVIEWER_COUNT=1
 IMPLEMENTER_TIMEOUT_SECONDS=1200
 REVIEWER_IDLE_TIMEOUT_SECONDS=3600
 MAX_ROUNDS_PER_STEP=7
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --guidance)
             GUIDANCE="$2"
+            shift 2
+            ;;
+        --reviewer-count)
+            REVIEWER_COUNT="$2"
             shift 2
             ;;
         --implementer-timeout-secs)
@@ -103,6 +109,7 @@ mkdir -p "$DIR"/{roles,heartbeats,requests,reviews,decisions}
 printf "TODO_FILE=%q\n" "$TODO_ABS" > "$DIR/meta.env"
 printf "STRICTNESS=%q\n" "$STRICTNESS" >> "$DIR/meta.env"
 printf "REVIEW_GUIDANCE=%q\n" "$GUIDANCE" >> "$DIR/meta.env"
+printf "REVIEWER_COUNT=%q\n" "$REVIEWER_COUNT" >> "$DIR/meta.env"
 printf "IMPLEMENTER_TIMEOUT_SECONDS=%q\n" "$IMPLEMENTER_TIMEOUT_SECONDS" >> "$DIR/meta.env"
 printf "REVIEWER_IDLE_TIMEOUT_SECONDS=%q\n" "$REVIEWER_IDLE_TIMEOUT_SECONDS" >> "$DIR/meta.env"
 printf "MAX_ROUNDS_PER_STEP=%q\n" "$MAX_ROUNDS_PER_STEP" >> "$DIR/meta.env"
@@ -114,6 +121,7 @@ cat > "$DIR/meta.md" <<EOF_META
 
 - **todo_file:** $TODO_ABS
 - **strictness:** $STRICTNESS
+- **reviewer_count:** $REVIEWER_COUNT
 - **review_guidance:** ${GUIDANCE:-"(none)"}
 - **implementer_timeout_seconds:** $IMPLEMENTER_TIMEOUT_SECONDS
 - **reviewer_idle_timeout_seconds:** $REVIEWER_IDLE_TIMEOUT_SECONDS

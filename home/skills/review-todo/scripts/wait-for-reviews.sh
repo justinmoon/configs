@@ -50,6 +50,9 @@ fi
 REVIEW_1="$DIR/reviews/$REQUEST_ID/reviewer-1.md"
 REVIEW_2="$DIR/reviews/$REQUEST_ID/reviewer-2.md"
 
+# Default to 1 reviewer if not set in meta.env
+REVIEWER_COUNT="${REVIEWER_COUNT:-1}"
+
 start="$(epoch_now)"
 deadline=$((start + IMPLEMENTER_TIMEOUT_SECONDS))
 timed_out=0
@@ -57,7 +60,9 @@ timed_out=0
 while true; do
     epoch_now > "$DIR/heartbeats/implementer.epoch"
 
-    if [[ -f "$REVIEW_1" && -f "$REVIEW_2" ]]; then
+    if [[ "$REVIEWER_COUNT" -eq 1 ]] && [[ -f "$REVIEW_1" ]]; then
+        break
+    elif [[ "$REVIEWER_COUNT" -ge 2 ]] && [[ -f "$REVIEW_1" && -f "$REVIEW_2" ]]; then
         break
     fi
 
@@ -85,6 +90,10 @@ elif [[ "$v1" == "CHANGES_REQUESTED" || "$v2" == "CHANGES_REQUESTED" ]]; then
     next_action="REWORK"
     rationale="At least one reviewer requested changes."
     exit_code=10
+elif [[ "$REVIEWER_COUNT" -eq 1 ]] && [[ "$v1" == "APPROVE" ]]; then
+    next_action="PROCEED"
+    rationale="Reviewer approved."
+    exit_code=0
 elif [[ "$v1" == "APPROVE" && "$v2" == "APPROVE" ]]; then
     next_action="PROCEED"
     rationale="Both reviewers approved."
