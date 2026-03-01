@@ -206,12 +206,9 @@ Then write `<negotiation-dir>/final.md` — a clean, comprehensive merged docume
 
 When `poll.sh` returns exit code 2, the negotiation is complete. Read `final.md` and report the outcome to the user.
 
-Copy the final document into the project:
-```bash
-mkdir -p ./todos
-cp <negotiation-dir>/final.md ./todos/<descriptive-name>.md
-```
-Let the user know where you put it so they can point an agent at it for implementation.
+Then use the `write-todo` skill to turn the negotiation outcome into a proper implementation spec. Tell write-todo to use `final.md` (and the source proposals in `sources/` for additional context) as the basis for the todo. The write-todo skill will produce a structured `todos/<name>.md` with `## Spec` and `## Plan` sections, acceptance criteria, and a manual QA gate — which is the format expected by `implement-todo`.
+
+Let the user know where the todo was written so they can point an agent at it for implementation.
 
 ## Turn Timeout
 
