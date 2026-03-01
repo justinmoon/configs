@@ -168,8 +168,9 @@ When it's your turn:
 
 6. **If ALL issues are AGREED**: Write the coverage audit and final document (see Step 6c). Then:
    ```bash
-   <scripts>/finish.sh <negotiation-dir>
+   <scripts>/finish.sh <negotiation-dir> <todo-name>
    ```
+   Where `<todo-name>` is a short kebab-case name (e.g. `shared-fixture-pool`). The script copies `final.md` to `todos/<todo-name>.md` automatically.
 
 7. **If issues remain OPEN**: Hand off:
    ```bash
@@ -212,17 +213,9 @@ This is the format both agents are agreeing on — the negotiation produces the 
 
 #### 6d: Done
 
-When `poll.sh` returns exit code 2, the negotiation is complete.
+When `poll.sh` returns exit code 2, the negotiation is complete. The todo has already been written to `todos/` by `finish.sh` — **do NOT write to `todos/` yourself.**
 
-**If you called `finish.sh`** (you are the finishing agent): copy the final document into the project:
-```bash
-mkdir -p ./todos
-cp <negotiation-dir>/final.md ./todos/<descriptive-name>.md
-```
-
-**If you did NOT call `finish.sh`** (the other agent finished): do not write to `todos/`. Just report that the negotiation is complete.
-
-Let the user know where the todo was written so they can point an agent at it for implementation.
+Read `<negotiation-dir>/todo-path.txt` to find the output path. Report the outcome to the user and let them know where the todo was written so they can point an agent at it for implementation.
 
 ## Turn Timeout
 

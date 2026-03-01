@@ -4,13 +4,16 @@ set -euo pipefail
 # Mark negotiation as done. Called by the agent who writes final.md.
 
 usage() {
-    echo "Usage: finish.sh <negotiation-dir>"
+    echo "Usage: finish.sh <negotiation-dir> <todo-name>"
+    echo "  todo-name: kebab-case name for the output file (e.g. shared-fixture-pool)"
+    echo "  Output will be written to ./todos/<todo-name>.md"
     exit 1
 }
 
-[[ $# -lt 1 ]] && usage
+[[ $# -lt 2 ]] && usage
 
 DIR="$1"
+TODO_NAME="$2"
 
 # Verify all issues are agreed
 OPEN=0
@@ -71,5 +74,13 @@ if [[ "$CHALLENGE_MISSING" -gt 0 ]]; then
     exit 1
 fi
 
+# Copy final.md to todos/ — this is the only place the copy happens,
+# ensuring exactly one output file from the negotiation.
+mkdir -p ./todos
+cp "$DIR/final.md" "./todos/${TODO_NAME}.md"
+
+# Record the output path so the other agent can discover it
+echo "todos/${TODO_NAME}.md" > "$DIR/todo-path.txt"
+
 echo "done" > "$DIR/turn.md"
-echo "Negotiation complete. Final document: $DIR/final.md"
+echo "Negotiation complete. Todo written to: todos/${TODO_NAME}.md"
