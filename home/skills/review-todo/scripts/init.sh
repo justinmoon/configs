@@ -99,12 +99,32 @@ fi
 
 TODO_ABS="$(cd "$(dirname "$TODO_FILE")" && pwd)/$(basename "$TODO_FILE")"
 
-if ! mkdir "$DIR" 2>/dev/null; then
-    echo "Already initialized: $DIR"
-    exit 3
+if [[ -e "$DIR" && ! -d "$DIR" ]]; then
+    echo "Error: run dir path exists and is not a directory: $DIR"
+    exit 1
+fi
+
+if [[ -d "$DIR" ]]; then
+    if [[ -f "$DIR/meta.env" ]]; then
+        echo "Already initialized: $DIR"
+        exit 3
+    fi
+else
+    mkdir -p "$DIR"
 fi
 
 mkdir -p "$DIR"/{roles,heartbeats,requests,reviews,decisions}
+
+GIT_WORKTREE_ROOT=""
+BASELINE_FILE="$DIR/git-status-baseline.porcelain"
+if GIT_WORKTREE_ROOT="$(git -C "$(dirname "$TODO_ABS")" rev-parse --show-toplevel 2>/dev/null)"; then
+    if ! git -C "$GIT_WORKTREE_ROOT" status --porcelain=v1 --untracked-files=all > "$BASELINE_FILE"; then
+        echo "Error: failed to capture git status baseline from $GIT_WORKTREE_ROOT"
+        exit 1
+    fi
+else
+    : > "$BASELINE_FILE"
+fi
 
 printf "TODO_FILE=%q\n" "$TODO_ABS" > "$DIR/meta.env"
 printf "STRICTNESS=%q\n" "$STRICTNESS" >> "$DIR/meta.env"
@@ -115,6 +135,8 @@ printf "REVIEWER_IDLE_TIMEOUT_SECONDS=%q\n" "$REVIEWER_IDLE_TIMEOUT_SECONDS" >> 
 printf "MAX_ROUNDS_PER_STEP=%q\n" "$MAX_ROUNDS_PER_STEP" >> "$DIR/meta.env"
 printf "POLL_INTERVAL_SECONDS=%q\n" "$POLL_INTERVAL_SECONDS" >> "$DIR/meta.env"
 printf "CREATED_AT=%q\n" "$(iso_now)" >> "$DIR/meta.env"
+printf "GIT_WORKTREE_ROOT=%q\n" "$GIT_WORKTREE_ROOT" >> "$DIR/meta.env"
+printf "GIT_STATUS_BASELINE_FILE=%q\n" "$BASELINE_FILE" >> "$DIR/meta.env"
 
 cat > "$DIR/meta.md" <<EOF_META
 # Review Todo Metadata
@@ -127,6 +149,8 @@ cat > "$DIR/meta.md" <<EOF_META
 - **reviewer_idle_timeout_seconds:** $REVIEWER_IDLE_TIMEOUT_SECONDS
 - **max_rounds_per_step:** $MAX_ROUNDS_PER_STEP
 - **poll_interval_seconds:** $POLL_INTERVAL_SECONDS
+- **git_worktree_root:** ${GIT_WORKTREE_ROOT:-"(none)"}
+- **git_status_baseline_file:** $BASELINE_FILE
 - **created:** $(iso_now)
 EOF_META
 

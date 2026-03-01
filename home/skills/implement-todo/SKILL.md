@@ -62,6 +62,10 @@ Run these two commands **sequentially** (init must finish before register):
 
 After completing each plan step:
 
+0. Commit step changes before checkpoint submission.
+   - Ensure the workspace is clean except for pre-existing baseline entries.
+   - If there are no changes for the step, explicitly state that in the request.
+
 1. Run `post-checkpoint.sh` to create the review request:
    ```bash
    <scripts>/post-checkpoint.sh <coord-dir> <step-id>
