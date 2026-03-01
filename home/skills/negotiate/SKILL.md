@@ -200,13 +200,27 @@ Before writing `final.md`, you MUST write `<negotiation-dir>/coverage-audit.md`:
 
 For each source proposal, identify ideas/sections/details that are **unique to that source** (not present in the other). For each, state whether it made it into `final.md` and why or why not.
 
-Then write `<negotiation-dir>/final.md` — a clean, comprehensive merged document incorporating every agreed decision.
+Then write `<negotiation-dir>/final.md` — a clean, comprehensive merged document incorporating every agreed decision. **`final.md` must follow the `write-todo` output contract** so it can be used directly by `implement-todo`:
+
+- Exactly two top-level sections: `## Spec` and `## Plan`
+- `## Spec` must state: why this is being done, intent and expected outcome, exact build target, exact approach
+- `## Plan` must use incrementing numbered steps with acceptance criteria per step
+- Final step must be manual QA (user-run)
+- No time estimates, dates, or timelines
+
+This is the format both agents are agreeing on — the negotiation produces the todo directly, with no post-hoc interpretation step.
 
 #### 6d: Done
 
-When `poll.sh` returns exit code 2, the negotiation is complete. Read `final.md` and report the outcome to the user.
+When `poll.sh` returns exit code 2, the negotiation is complete.
 
-Then use the `write-todo` skill to turn the negotiation outcome into a proper implementation spec. Tell write-todo to use `final.md` (and the source proposals in `sources/` for additional context) as the basis for the todo. The write-todo skill will produce a structured `todos/<name>.md` with `## Spec` and `## Plan` sections, acceptance criteria, and a manual QA gate — which is the format expected by `implement-todo`.
+**If you called `finish.sh`** (you are the finishing agent): copy the final document into the project:
+```bash
+mkdir -p ./todos
+cp <negotiation-dir>/final.md ./todos/<descriptive-name>.md
+```
+
+**If you did NOT call `finish.sh`** (the other agent finished): do not write to `todos/`. Just report that the negotiation is complete.
 
 Let the user know where the todo was written so they can point an agent at it for implementation.
 
@@ -223,7 +237,7 @@ If an agent fails to act within `turn_timeout_seconds` (default: 600s / 10 minut
 - **Be adversarial, then constructive**: Your job is to find the best answer, not to be polite. Disagree when you have a better idea. Challenge weak reasoning. Then propose compromises.
 - **Be specific**: Reference exact text from source documents.
 - **Be concise**: 1-3 paragraphs per position per issue.
-- **Focus on the output**: The goal is `final.md` — a single document everyone can work from.
+- **Focus on the output**: The goal is `final.md` — a todo spec (with `## Spec` and `## Plan`) that both agents agree on and that can be handed directly to `implement-todo`.
 - **Never edit another agent's positions**: Append only.
 - **Use the right script for issues**: `file-draft-issue.sh` during analysis, `new-issue.sh` during positions.
 - **Coverage matters**: The final document must account for unique ideas from ALL sources, not just the first-mover's.
