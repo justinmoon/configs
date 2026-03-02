@@ -1,12 +1,18 @@
 # Negotiation Protocol Reference
 
+## Hard Constraints
+
+1. One runtime/session may play only one agent role.
+2. The protocol assumes a separate peer session is participating.
+3. If peers are missing at deadline, fail closed by default.
+
 ## Directory Structure
 
 ```
 negotiation/
 ├── meta.md              # Config: expected agents, timing, max rounds
 ├── topic.md             # What is being negotiated
-├── agents.md            # Registered agents (append-only)
+├── agents.md            # Registered agents (append-only, includes participant identity)
 ├── turn.md              # Current turn holder (one word)
 ├── phase.md             # Current phase: "analysis" or "positions"
 ├── .turn-started        # Internal: timestamp for timeout detection
@@ -33,6 +39,16 @@ negotiation/
 └── final.md             # Final merged document (written at end)
 ```
 
+## Registration Record Format (`agents.md`)
+
+Each registration line must include both agent name and participant identity:
+
+```markdown
+- agent-alpha (registered: 2026-03-02T12:34:56Z, participant: codex:019c...)
+```
+
+`participant` is used to prevent one live session from claiming multiple agent names.
+
 ## Phases
 
 ### Analysis Phase (`phase.md` = "analysis")
@@ -57,6 +73,7 @@ Standard turn-based negotiation. Agents write positions on all open issues, chal
 |-------|---------|-------------|
 | expected_agents | required | Number of agents to wait for |
 | registration_window_seconds | 30 | Max time to wait for all agents |
+| require_unique_participants | true | Reject duplicate participant identity (same session registering multiple names) |
 | max_rounds_per_agent | 5 | Max position rounds per agent per issue |
 | poll_interval_seconds | 5 | How often agents should poll |
 | turn_timeout_seconds | 600 | Skip agent if inactive this long |
@@ -173,16 +190,18 @@ For each source, identify content **unique to that source** (not present in the 
 ## Rules
 
 1. **Independent analysis**: File issues based on YOUR reading of the sources during analysis phase. Do not read other agents' draft issues.
-2. **Challenge before agree**: No issue may be marked AGREED without at least one challenge entry from any agent.
-3. **Append only**: Never edit another agent's positions. Only append your own.
-4. **Full positions**: State your reasoning, not just agree/disagree.
-5. **One issue per file**: Don't merge issues.
-6. **Address all issues**: On every turn, write positions on ALL open issues — not just ones derived from your analysis. Skipping issues filed by other agents wastes turns.
-7. **No self-agreement**: You may only change Status to AGREED if at least one other agent has already written a position on that issue.
-8. **Escalation**: After max rounds without agreement, change Status to ESCALATE.
-9. **Coverage audit required**: Before writing `final.md`, write `coverage-audit.md` accounting for unique content from all sources.
-10. **Finish**: When ALL issues are AGREED, coverage audit is written, the agent whose turn it is writes `final.md` and runs `finish.sh`.
-11. **Never stop polling**: The poll loop must run autonomously until the negotiation is done (exit code 2). Never pause to ask the user.
+2. **One session, one identity**: A participant identity may register only one agent name. If registration detects the same identity twice, the run is invalid.
+3. **Fail closed on missing peers**: If registration deadline passes without enough agents, abort by default. Partial fallback is opt-in (`NEGOTIATE_ALLOW_PARTIAL_REGISTRATION=1`) and should only be used with explicit user approval.
+4. **Challenge before agree**: No issue may be marked AGREED without at least one challenge entry from any agent.
+5. **Append only**: Never edit another agent's positions. Only append your own.
+6. **Full positions**: State your reasoning, not just agree/disagree.
+7. **One issue per file**: Don't merge issues.
+8. **Address all issues**: On every turn, write positions on ALL open issues — not just ones derived from your analysis. Skipping issues filed by other agents wastes turns.
+9. **No self-agreement**: You may only change Status to AGREED if at least one other agent has already written a position on that issue.
+10. **Escalation**: After max rounds without agreement, change Status to ESCALATE.
+11. **Coverage audit required**: Before writing `final.md`, write `coverage-audit.md` accounting for unique content from all sources.
+12. **Finish**: When ALL issues are AGREED, coverage audit is written, the agent whose turn it is writes `final.md` and runs `finish.sh`.
+13. **Never stop polling**: The poll loop must run autonomously until the negotiation is done (exit code 2). Never pause to ask the user.
 
 ## Turn Mechanics
 
@@ -203,8 +222,8 @@ Max rounds per agent (from meta.md) applies per-issue to position entries only.
 | Script | Phase | Purpose |
 |--------|-------|---------|
 | `init.sh <dir> <n> [window]` | Setup | Create negotiation directory |
-| `register.sh <dir> <name>` | Setup | Register an agent |
-| `wait-for-start.sh <dir> <name>` | Setup | Block until registration complete |
+| `register.sh <dir> <name>` | Setup | Register an agent; enforces one participant identity per agent name |
+| `wait-for-start.sh <dir> <name>` | Setup | Block until registration checks pass (fails closed on partial/duplicate by default) |
 | `file-draft-issue.sh <dir> <name> <topic>` | Analysis | File issue in agent's private staging area |
 | `end-analysis.sh <dir> <name>` | Analysis | Mark analysis done; merge issues if all agents done; hand off |
 | `poll.sh <dir> <name>` | Both | Check if it's your turn (0=yes, 1=no, 2=done) |

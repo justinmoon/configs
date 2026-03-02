@@ -37,6 +37,7 @@ cat > "$DIR/meta.md" << EOF
 
 - **expected_agents:** $NUM_AGENTS
 - **registration_window_seconds:** $REG_WINDOW
+- **require_unique_participants:** true
 - **max_rounds_per_agent:** 5
 - **poll_interval_seconds:** 5
 - **turn_timeout_seconds:** 600

@@ -25,6 +25,17 @@ echo "Registered agents:"
 grep "^- " "$DIR/agents.md" 2>/dev/null || echo "  (none)"
 echo ""
 
+# Participant uniqueness check (best-effort visibility for debugging)
+PARTICIPANTS=$(grep "^- " "$DIR/agents.md" 2>/dev/null | sed -n 's/.*participant: \([^)]*\)).*/\1/p' || true)
+if [[ -n "$PARTICIPANTS" ]]; then
+    DUPS=$(printf "%s\n" "$PARTICIPANTS" | sort | uniq -d || true)
+    if [[ -n "$DUPS" ]]; then
+        echo "Participant identity warning: duplicate participant(s) detected"
+        printf "  %s\n" "$DUPS"
+        echo ""
+    fi
+fi
+
 # Issues and positions
 echo "Issues:"
 TOTAL=0

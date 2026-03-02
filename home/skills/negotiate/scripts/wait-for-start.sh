@@ -6,6 +6,10 @@ set -euo pipefail
 
 usage() {
     echo "Usage: wait-for-start.sh <negotiation-dir> <agent-name>"
+    echo ""
+    echo "Exit codes:"
+    echo "  0 - Ready to start negotiation"
+    echo "  2 - Not enough independent participants (or duplicate participant identity)"
     exit 1
 }
 
@@ -19,6 +23,7 @@ REG_WINDOW=$(grep "registration_window_seconds:" "$DIR/meta.md" | grep -oE '[0-9
 
 echo "Waiting for registration to complete ($EXPECTED agents expected, ${REG_WINDOW}s window)..."
 
+REGISTERED=0
 while true; do
     REGISTERED=$(grep -c "^- [a-z]" "$DIR/agents.md" 2>/dev/null || echo 0)
 
@@ -33,7 +38,7 @@ while true; do
     if [[ -n "$DEADLINE" ]]; then
         NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         if [[ "$NOW" > "$DEADLINE" ]] || [[ "$NOW" == "$DEADLINE" ]]; then
-            echo "Registration deadline passed. Proceeding with $REGISTERED agents."
+            echo "Registration deadline passed."
             break
         fi
     fi
@@ -41,15 +46,47 @@ while true; do
     sleep "$POLL_INTERVAL"
 done
 
+if [[ "$REGISTERED" -lt "$EXPECTED" ]]; then
+    if [[ "${NEGOTIATE_ALLOW_PARTIAL_REGISTRATION:-0}" == "1" ]]; then
+        echo "WARNING: Proceeding with $REGISTERED/$EXPECTED registered agents because NEGOTIATE_ALLOW_PARTIAL_REGISTRATION=1"
+    else
+        echo "Error: Only $REGISTERED/$EXPECTED agents registered."
+        echo "Refusing to proceed with a partial negotiation."
+        echo "Start additional agents or explicitly opt into fallback with NEGOTIATE_ALLOW_PARTIAL_REGISTRATION=1."
+        exit 2
+    fi
+fi
+
 # Determine turn order from registration order
 AGENTS=()
+PARTICIPANTS=()
 while IFS= read -r line; do
     name=$(echo "$line" | sed 's/^- \([a-z][a-z0-9-]*\) .*/\1/')
     AGENTS+=("$name")
+    participant=$(echo "$line" | sed -n 's/.*participant: \([^)]*\)).*/\1/p')
+    if [[ -n "$participant" ]]; then
+        PARTICIPANTS+=("$participant")
+    else
+        # Backward compatibility for older registrations that don't include participant metadata.
+        PARTICIPANTS+=("legacy:$name")
+    fi
 done < <(grep "^- [a-z]" "$DIR/agents.md")
+
+# Ensure each registration represents a distinct participant identity.
+DUPLICATE_PARTICIPANT=$(printf '%s\n' "${PARTICIPANTS[@]}" | sort | uniq -d | head -1 || true)
+if [[ -n "$DUPLICATE_PARTICIPANT" ]]; then
+    echo "Error: Duplicate participant identity detected: $DUPLICATE_PARTICIPANT"
+    echo "One session appears to have registered multiple agent names."
+    echo "Aborting negotiation to preserve independent-adversary guarantees."
+    exit 2
+fi
 
 # Set turn to first agent
 FIRST="${AGENTS[0]}"
+if [[ -z "${FIRST:-}" ]]; then
+    echo "Error: No agents registered"
+    exit 2
+fi
 echo "$FIRST" > "$DIR/turn.md"
 
 # Find this agent's position

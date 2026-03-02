@@ -11,6 +11,7 @@ Structured multi-agent negotiation protocol. Two or more AI agents resolve disag
 - Neither agent "owns" the framing. Both independently identify divergences and file issues.
 - Agreement requires adversarial testing first. You must argue against a position before accepting it.
 - The final document must demonstrably account for unique ideas from all sources.
+- A single session may register only one agent identity. If you try to play both roles yourself, registration must fail.
 
 ## Scripts
 
@@ -22,52 +23,69 @@ You'll receive an instruction like: **"Negotiate about \<topic\> at \<path\> wit
 
 The other agents receive the same instruction. You don't know who goes first — the skill handles it.
 
+## Hard Constraints (Read Before Starting)
+
+1. **One role only.** You may register exactly one agent identity and play exactly one side of the negotiation.
+2. **Assume a separate peer was prompted.** The user has asked another agent session to join this same protocol.
+3. **Never simulate the peer.** If no peer arrives by the registration deadline, abort (unless the user explicitly approves single-agent fallback).
+
 ### Step 1: Try to Initialize
 
 ```bash
 <scripts>/init.sh <negotiation-dir> <N> 120
 ```
 
-- **Exit 0** → You're the **initializer**. Go to Step 2a.
-- **Exit 3** → Another agent already initialized. Go to Step 2b.
+- **Exit 0** → You're the **initializer**. Continue to Step 2 (and later do Step 4a).
+- **Exit 3** → Another agent already initialized. Continue to Step 2 as a joiner.
 
 Use 120s registration window unless the user says otherwise.
 
-### Step 2a: You're the Initializer
-
-1. Write `<negotiation-dir>/topic.md` describing what's being negotiated.
-2. Add your plan / source material to `<negotiation-dir>/sources/` (e.g. `sources/agent-alpha-proposal.md`).
-3. **Do NOT create issues yet.** Issues are filed during the Analysis Phase (Step 5).
-4. Go to Step 3.
-
-### Step 2b: You're Joining
-
-Another agent is initializing. **Sleep 10 seconds** to let them finish writing topic/sources, then go to Step 3.
-
-On your first turn you will add your own source material to `sources/`.
-
-### Step 3: Pick Your Agent Name
+### Step 2: Pick Your Agent Name
 
 Read `<negotiation-dir>/agents.md`. Pick the first unused name from this sequence:
 `agent-alpha`, `agent-beta`, `agent-gamma`, `agent-delta`, `agent-epsilon`
 
 If `register.sh` fails because the name is already taken, try the next name.
 
-### Step 4: Register and Wait
+### Step 3: Register Immediately (Do This Before Any Analysis Work)
 
-#### 4a: Register
+Register now, before writing proposals, issues, or analysis:
 
 ```bash
 <scripts>/register.sh <negotiation-dir> <your-agent-name>
 ```
 
-#### 4b: Wait for All Agents
+- If exit code is **4** ("participant already registered"), stop. This means the same session/process already claimed another agent name, so the run is invalid as an independent multi-agent negotiation.
+- Do **not** continue by pretending to be a different agent.
+
+### Step 4a: Initializer Writes Topic + Source
+
+If `init.sh` returned exit 0 (you initialized the dir):
+
+1. Write `<negotiation-dir>/topic.md` describing what's being negotiated.
+2. Add your plan/source material to `<negotiation-dir>/sources/` (e.g. `sources/agent-alpha-proposal.md`).
+3. **Do NOT create issues yet.** Issues are filed during the Analysis Phase (Step 5).
+
+If `init.sh` returned exit 3 (you joined), skip this step for now.
+
+### Step 4b: Wait for All Agents
 
 ```bash
 <scripts>/wait-for-start.sh <negotiation-dir> <your-agent-name>
 ```
 
-This blocks until all expected agents register or the registration window closes.
+`wait-for-start.sh` enforces independent participation:
+
+- Exit **0**: all checks passed, continue.
+- Exit **2**: abort this run. Either not enough agents registered by deadline, or duplicate participant identity was detected.
+
+By default, partial registration is rejected. Only use the single-agent fallback if the user explicitly asks for it:
+
+```bash
+NEGOTIATE_ALLOW_PARTIAL_REGISTRATION=1 <scripts>/wait-for-start.sh <negotiation-dir> <your-agent-name>
+```
+
+On your first analysis turn, if you haven't yet added your source file, add it then.
 
 ### Step 5: Analysis Phase
 
@@ -229,9 +247,11 @@ If an agent fails to act within `turn_timeout_seconds` (default: 600s / 10 minut
 ## Negotiation Rules
 
 - **Independent analysis first**: File issues based on YOUR reading of the sources, not the other agent's framing.
+- **One session, one identity**: Never register more than one agent name from the same session/process identity.
 - **Challenge before agree**: Every AGREED issue must have at least one challenge entry arguing against the accepted position. No rubber-stamping.
 - **Address all issues**: On every turn, write positions on ALL open issues, not just your own.
 - **No self-agreement**: You cannot mark an issue AGREED unless another agent has written a position on it.
+- **Fail closed on missing peers**: If expected peers do not register by the deadline, abort unless the user explicitly approves partial fallback.
 - **Be adversarial, then constructive**: Your job is to find the best answer, not to be polite. Disagree when you have a better idea. Challenge weak reasoning. Then propose compromises.
 - **Be specific**: Reference exact text from source documents.
 - **Be concise**: 1-3 paragraphs per position per issue.
