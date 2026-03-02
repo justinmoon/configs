@@ -79,8 +79,10 @@ fi
 mkdir -p ./todos
 cp "$DIR/final.md" "./todos/${TODO_NAME}.md"
 
-# Record the output path so the other agent can discover it
-echo "todos/${TODO_NAME}.md" > "$DIR/todo-path.txt"
+ABS_PATH="$(cd ./todos && pwd)/${TODO_NAME}.md"
+
+# Record the absolute output path so the other agent can discover it
+echo "$ABS_PATH" > "$DIR/todo-path.txt"
 
 echo "done" > "$DIR/turn.md"
-echo "Negotiation complete. Todo written to: todos/${TODO_NAME}.md"
+echo "Negotiation complete. Todo written to: $ABS_PATH"
