@@ -47,8 +47,24 @@ if [[ ! -f "$REQUEST_FILE" ]]; then
     exit 2
 fi
 
-REVIEW_1="$DIR/reviews/$REQUEST_ID/reviewer-1.md"
-REVIEW_2="$DIR/reviews/$REQUEST_ID/reviewer-2.md"
+# Check both subdirectory format (post-review.sh) and top-level format (agent-written)
+find_review() {
+    local role="$1"
+    local subdir="$DIR/reviews/$REQUEST_ID/$role.md"
+    local toplevel="$DIR/reviews/${REQUEST_ID}-${role}.md"
+    if [[ -f "$subdir" ]]; then
+        echo "$subdir"
+    elif [[ -f "$toplevel" ]]; then
+        echo "$toplevel"
+    else
+        echo ""
+    fi
+}
+
+review_exists() {
+    local role="$1"
+    [[ -n "$(find_review "$role")" ]]
+}
 
 # Default to 1 reviewer if not set in meta.env
 REVIEWER_COUNT="${REVIEWER_COUNT:-1}"
@@ -60,9 +76,9 @@ timed_out=0
 while true; do
     epoch_now > "$DIR/heartbeats/implementer.epoch"
 
-    if [[ "$REVIEWER_COUNT" -eq 1 ]] && [[ -f "$REVIEW_1" ]]; then
+    if [[ "$REVIEWER_COUNT" -eq 1 ]] && review_exists "reviewer-1"; then
         break
-    elif [[ "$REVIEWER_COUNT" -ge 2 ]] && [[ -f "$REVIEW_1" && -f "$REVIEW_2" ]]; then
+    elif [[ "$REVIEWER_COUNT" -ge 2 ]] && review_exists "reviewer-1" && review_exists "reviewer-2"; then
         break
     fi
 
@@ -75,6 +91,8 @@ while true; do
     sleep "$POLL_INTERVAL_SECONDS"
 done
 
+REVIEW_1="$(find_review "reviewer-1")"
+REVIEW_2="$(find_review "reviewer-2")"
 v1="$(parse_verdict "$REVIEW_1")"
 v2="$(parse_verdict "$REVIEW_2")"
 

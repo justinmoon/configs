@@ -2,22 +2,22 @@
 
 stdenv.mkDerivation rec {
   pname = "ngit";
-  version = "2.0.0";
+  version = "2.2.3";
 
   src = if stdenv.isDarwin then
     fetchurl {
       url = "https://github.com/DanConwayDev/ngit-cli/releases/download/v${version}/ngit-v${version}-universal-apple-darwin.tar.gz";
-      sha256 = "791d0696e06c304d040aa3534cb7427af5febaa459870ce91812e16ecb738bc7";
+      sha256 = "585bfd211d0822248eb81a67abad69e8b45a6778f7e509ce3783aef8ae0ab33f";
     }
   else if stdenv.isLinux && stdenv.isx86_64 then
     fetchurl {
       url = "https://github.com/DanConwayDev/ngit-cli/releases/download/v${version}/ngit-v${version}-x86_64-unknown-linux-gnu.2.17.tar.gz";
-      sha256 = "e13a711e79f6f2522d557e0cae51c909f02921a5531893ec68a264efe7595a87";
+      sha256 = "f8f99c2d1d7cb7dcb99210cfd5b449da1a16606e8ea998973b9d8e2c0a5dbbd6";
     }
   else if stdenv.isLinux && stdenv.isAarch64 then
     fetchurl {
       url = "https://github.com/DanConwayDev/ngit-cli/releases/download/v${version}/ngit-v${version}-aarch64-unknown-linux-gnu.2.17.tar.gz";
-      sha256 = "b281b15bbd816f8e0cbf6332804d93fa13dbdd143836a57210160d8e0e72b1a3";
+      sha256 = "bee637df2fb071224514f0f41f9f1cca802533203ab38b60071755605f86bfc9";
     }
   else
     throw "Unsupported platform";

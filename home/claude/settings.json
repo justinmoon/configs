@@ -9,5 +9,9 @@
   "keybindings": {
     "newline": "alt+enter"
   },
-  "effortLevel": "medium"
+  "permissions": {
+    "deny": [
+      "EnterPlanMode"
+    ]
+  }
 }

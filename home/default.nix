@@ -112,6 +112,7 @@
       zoxide
       bat
       sesh
+      tmuxinator
       gum
       glow
       lf

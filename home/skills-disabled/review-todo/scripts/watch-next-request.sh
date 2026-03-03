@@ -41,13 +41,14 @@ while true; do
     while IFS= read -r request_file; do
         request_id="$(basename "$request_file" .md)"
         decision_file="$DIR/decisions/$request_id.md"
-        review_file="$DIR/reviews/$request_id/$ROLE.md"
+        review_subdir="$DIR/reviews/$request_id/$ROLE.md"
+        review_toplevel="$DIR/reviews/${request_id}-${ROLE}.md"
 
         if [[ -f "$decision_file" ]]; then
             continue
         fi
 
-        if [[ ! -f "$review_file" ]]; then
+        if [[ ! -f "$review_subdir" && ! -f "$review_toplevel" ]]; then
             echo "request-id: $request_id"
             echo "request-file: $request_file"
             exit 0

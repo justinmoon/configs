@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+xcrun simctl shutdown all 2>/dev/null
+killall Simulator 2>/dev/null
+echo "All iOS simulators killed."
