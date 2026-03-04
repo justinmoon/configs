@@ -257,6 +257,7 @@ home.sessionVariables = {
         source = mkConfigLink "skills";
         force = true;
       };
+      ".factory/settings.json".source = mkConfigLink "factory/settings.json";
       ".factory/skills" = {
         source = mkConfigLink "skills";
         force = true;

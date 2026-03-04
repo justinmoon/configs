@@ -1,0 +1,13 @@
+{
+  "logoAnimation": "off",
+  "sessionDefaultSettings": {
+    "reasoningEffort": "high",
+    "autonomyMode": "auto-high",
+    "model": "claude-opus-4-6",
+    "specModeReasoningEffort": "medium"
+  },
+  "enableDroidShield": false,
+  "todoDisplayMode": "inline",
+  "showThinkingInMainView": true,
+  "includeCoAuthoredByDroid": false
+}
