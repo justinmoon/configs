@@ -37,6 +37,11 @@ alias nq="networkquality"
 alias da="direnv allow"
 alias glow="glow -p"
 
+# Work around macOS/Gatekeeper hanging on the pi shebang launcher.
+function pi
+    command node ~/.bun/bin/pi $argv
+end
+
 alias gk="git push"
 alias gj="git pull"
 alias gc="git commit"

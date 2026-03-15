@@ -1,7 +1,12 @@
 {
+  "permissions": {
+    "deny": [
+      "EnterPlanMode"
+    ]
+  },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": false,
     "gopls-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true
   },
@@ -9,9 +14,5 @@
   "keybindings": {
     "newline": "alt+enter"
   },
-  "permissions": {
-    "deny": [
-      "EnterPlanMode"
-    ]
-  }
+  "effortLevel": "high"
 }

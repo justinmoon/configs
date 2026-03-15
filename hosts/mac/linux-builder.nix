@@ -6,16 +6,15 @@
 { config, lib, pkgs, ... }:
 
 {
-  # Linux builder for aarch64-linux builds (disabled to save 8GB memory)
-  # Re-enable when needed for building agent-vm or other Linux derivations
-  # nix.linux-builder = {
-  #   enable = true;
-  #   maxJobs = 4;
-  #   config = ({ lib, ... }: {
-  #     virtualisation.cores = 4;
-  #     virtualisation.memorySize = lib.mkForce 8192;  # 8GB for building NixOS VMs
-  #   });
-  # };
+  # Linux builder for aarch64-linux builds.
+  nix.linux-builder = {
+    enable = true;
+    maxJobs = 4;
+    config = ({ lib, ... }: {
+      virtualisation.cores = 4;
+      virtualisation.memorySize = lib.mkForce 8192; # 8GB for building NixOS VMs
+    });
+  };
 
   # Remote x86_64-linux builder on Hetzner
   nix.distributedBuilds = true;
