@@ -74,6 +74,18 @@
   # Auto-hide the Dock
   system.defaults.dock.autohide = true;
 
+  # Ghostty's app menu claims cmd+, and cmd+h via AppKit before terminal
+  # surface bindings run. Move those menu shortcuts out of the way so the
+  # tmux-style Ghostty bindings in home/ghostty/config take precedence.
+  system.defaults.CustomUserPreferences = {
+    "com.mitchellh.ghostty" = {
+      NSUserKeyEquivalents = {
+        "Preferences…" = "~^@,";
+        "Hide Ghostty" = "~^@h";
+      };
+    };
+  };
+
   # Remap Caps Lock to Control
   system.keyboard = {
     enableKeyMapping = true;

@@ -136,7 +136,8 @@ keybind = cmd+shift+w=close_window
 keybind = cmd+slash=text:\x00[/
 
 # Rename pane
-keybind = cmd+comma=text:\x00,
+# Use a literal comma trigger so this overrides Ghostty's built-in cmd+, binding.
+keybind = cmd+,=text:\x00,
 
 # Command mode
 keybind = cmd+semicolon=text:\x00:
